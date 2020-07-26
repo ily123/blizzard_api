@@ -1,4 +1,10 @@
 .api_tokens
+*.pkl
+*.swp
+
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

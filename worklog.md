@@ -3,6 +3,11 @@
     Set up access token generator function
     Tried out some simple GET requests
 
+# Jul 13 session
+    Created MySQL server on RDS
+    Connected to server
+    Tried basic commands
+
 # Jul ?? session
     Get current weeks leaderboard for 1 realm
     Unroll the response
