@@ -1,7 +1,7 @@
 .api_tokens
 *.pkl
 *.swp
-
+.db_config
 
 
 
