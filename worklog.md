@@ -20,11 +20,43 @@
     Set up python connector.
     Used connector to insert the first 500 runs into database.
 
-# Jul ?? session
-    Get current weeks leaderboard for 1 realm
-    Unroll the response
+# Jul 27
+    Wrote call factory.
 
-# Jul ??? session
-    Connect to RDS
-    Create table to store leaderboard
-    Push data from sessions Jul ?? to RDS
+# Jul 28
+    Made realm table in MDB.
+
+# Jul 29
+    Made dungeon index table in MDB.
+    Wrote leaderboard call method into CallFactory.
+
+# Aug 2
+    Rewrote class organization
+
+# Aug 3
+    Added region and faction to key run parser
+    Remade SQL table schema
+
+# Aug 5
+    Updated insert query logic for Key run and player character classes
+
+# Aug 6
+    Added composite primary key to roster table
+    Added region id to key run primary key
+    Purchased domain name...
+    wrote jupyter code to download all US realm
+
+# Aug 7
+    fixed merged realm cluster ids
+    wrote auto-updater realm script
+
+# Aug 8
+    fixed the bug with roster/run keys
+    checked char uniqs -- only unique within realm
+
+# Aug 9
+    cleaned up code base a bit
+    downloaded data for EU/TW/KR/US for period 762 (current week)
+
+# ?? 
+    Get period checks into leaderboard call.

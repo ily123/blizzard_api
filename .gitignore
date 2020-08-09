@@ -2,7 +2,7 @@
 *.pkl
 *.swp
 .db_config
-
+logs/
 
 
 # Byte-compiled / optimized / DLL files
