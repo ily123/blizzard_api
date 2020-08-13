@@ -5,6 +5,10 @@ import pandas as pd
 class MplusDatabase():
     """Class for working with M+ MySQL database."""
     __utility_tables = ['realm', 'region', 'dungeon']
+    __main_tables = ['period']
+    __table_fields = {
+        'period' : ['region', 'id', 'start_timestamp', 'end_timestamp'] 
+    }
 
     def __init__(self, config_file_path):
         """Inits with database config file."""
@@ -37,7 +41,6 @@ class MplusDatabase():
         conn = mysql.connector.connect(**self.credentials) 
         return conn
 
-
     def execute_insert_query(self, query):
         """Execute insert or update query aganist the database."""
         connection = self.connect()
@@ -51,6 +54,37 @@ class MplusDatabase():
             cursor.close()
             connection.close() 
         
+    def insert(self, table, data):
+        """Batch-inserts list of rows into database.
+
+        Warning: make sure row fields align with fields in the table.
+        """
+        if not isinstance(data, list):
+            raise TypeError('Supply data as a list of rows')
+        fields = self.get_table_fields(table)
+        connection = self.connect()
+        cursor = connection.cursor()
+        try:
+            query = ('INSERT IGNORE into {table} '
+                     '({table_fields}) '
+                     'VALUES ({blanks})').format(table = table,
+                table_fields = ','.join(fields),
+                blanks = ','.join(['%s' for i in range(0, len(fields))]))
+            #executemany supposedly batches data into a single query
+            cursor.executemany(query, data)
+            connection.commit()
+        except:
+            raise Exception('Problem with inserting data into MDB.')
+        finally:
+            cursor.close()
+            connection.close() 
+    
+    def get_table_fields(self, table):
+        """Returns fieds in table, in correct order.
+        
+        The table schemas are set up by hand and correspond to MDB.
+        """
+        return self.__table_fields[table]
 
     def get_utility_table(self, table):
         """Retrieves utility table from the database in SELECT * fashion.

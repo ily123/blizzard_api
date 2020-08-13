@@ -4,10 +4,12 @@ Blizzard/WoW API docs:
 https://develop.battle.net/documentation/world-of-warcraft/game-data-apis
 """
 import re
+from utils import Utils
+import blizzard_credentials
+import requests
 
-
-class CallFactory:
-    """API call constructor."""
+class UrlFactory:
+    """API url call constructor."""
     
     def __init__(self, access_token, region):
         """Inits with access token.
@@ -27,7 +29,7 @@ class CallFactory:
         elif region in ['us', 'eu', 'kr', 'tw']:
             host = '{region}.api.blizzard.com'.format(region=region)
         else:
-            raise('invalid region entered')
+            raise('region token must be one of: us, eu, kr, tw, cn')
         return host
 
     def get_request_call_url(self, endpoint, namespace):
@@ -56,7 +58,7 @@ class CallFactory:
         call_url = self.get_request_call_url(endpoint, namespace)
         return call_url
 
-    def get_mythic_plus_leaderboard_call(self,
+    def get_mythic_plus_leaderboard_url(self,
             dungeon_id, realm_id, period):
         """Constructs call to mythic+ leaderboard."""
         endpoint = ('data/wow/connected-realm/{realm}/mythic-leaderboard/'
@@ -65,39 +67,48 @@ class CallFactory:
         namespace = 'dynamic-{region}'.format(region = self.region)
         call_url = self.get_request_call_url(endpoint, namespace)
         return call_url 
+    
+    def get_timeperiod_index_url(self):
+        """Constructs url for timeperiod index call."""
+        endpoint = 'data/wow/mythic-keystone/period/index'
+        namespace = 'dynamic-{region}'.format(region = self.region)
+        call_url = self.get_request_call_url(endpoint, namespace)
+        return call_url
+
+    def get_timeperiod_url(self, period):
+        """Constructs url for time period call."""
+        if period < 641:
+            raise ValueError("""
+                Earliest allowd period in Blizzard DB is 641, you entered %d"""
+                % period)
+        endpoint = '/data/wow/mythic-keystone/period/{periodId}'.format(
+            periodId = period)
+        namespace = 'dynamic-{region}'.format(region = self.region)
+        call_url = self.get_request_call_url(endpoint, namespace)
+        return call_url
 
 
-class Utils:
-    """Collection of utility methods."""
-
-    @staticmethod
-    def get_realm_id_from_url(connected_realm_url):
-        """Parsess realm ID from the json."""
-        cap = re.findall('connected-realm\/(\d+)\?', connected_realm_url)       
-        realm_id = cap[0]
-        return realm_id
-   
-    @staticmethod
-    def encode_region(region_slug):
-        """Converts region token string into an int code."""
-        codes = {'us': 1, 'kr': 2, 'eu': 3, 'tw': '4'}
-        return codes[region_slug.lower()]
-
-    @staticmethod
-    def get_region_from_url(url):
-        """Extracts region from call url."""
-        pattern = re.compile('namespace=(dynamic|static)-(\w{2})$')
-        cap = pattern.search(url)
-        region_slug = cap[2]
-        return region_slug
 
 class ResponseParser:
-    """Parse leaderboards Json."""
+    """Parse Blizzard response Json."""
 
     def __init__(self, json = None):
         """Inits with rolled-up json string."""
         if json:
             self.json = json
+    
+    def parse_timeperiod_index_json(self, json):
+        """Retrieves time period ids from periond index call json."""   
+        period_ids = []
+        for period in json['periods']:
+            period_ids.append(period['id'])
+        return period_ids
+    
+    def parse_timeperiod_json(self, json):
+        """Retrieves start and end timestamps from period json."""
+        start = json['start_timestamp']
+        end = json['end_timestamp']
+        return [start, end]
     
     def parse_connected_realm_index_json(self, json):
         """Unrolls json from a connected realm index call."""
@@ -127,7 +138,7 @@ class ResponseParser:
         return realm_id
     
     @staticmethod 
-    def parse_keyrun_json(json):
+    def parse_keyrun_leaderboard_json(json):
         """Parses the key run leaderboard of the json."""
         leaderboard = KeyRunLeaderboard(json) 
         return leaderboard
@@ -394,3 +405,34 @@ class QueryFactory:
         query = 'INSERT IGNORE INTO %s VALUES %s' % (destination_table,
                                                      ','.join(values))
         return query
+
+
+class Caller:
+    """Abstracts API interactions into a high-level interface."""    
+    __default_access_token_fp = '.api_tokens'   
+ 
+    def __init__(self, access_token = None):
+        """Inits wtih access token. If no token, tries to get one."""
+        if not access_token:
+            auth = blizzard_credentials.Credentials(
+                self.__default_access_token_fp)
+            access_token = auth.access_token 
+        self.access_token = access_token 
+        if not self.access_token:
+            raise ValueError("""Caller needs a valid access token
+                to query Blizzard API""")
+        self.parser = ResponseParser()
+
+    def get_leaderboard(self, region, realm, dungeon, period):
+        """Gets leaderboard for specified region/realm/dungeon/period."""
+        url_factory = UrlFactory(self.access_token, region)
+        call_url = url_factory.get_mythic_plus_leaderboard_url(
+            dungeon_id = dungeon,
+            realm_id = realm,
+            period = period) 
+        response = requests.get(call_url)
+        if response.status_code != 200:
+            raise('Leaderboard call failed.') 
+        leaderboard = self.parser.parse_keyrun_leaderboard_json(
+            response.json())
+        return leaderboard
