@@ -88,7 +88,6 @@ class UrlFactory:
         return call_url
 
 
-
 class ResponseParser:
     """Parse Blizzard response Json."""
 
@@ -172,15 +171,16 @@ class KeyRunLeaderboard:
 
     def __generate_sql_row_value(self, keyrun):
         """Crates VALUE component of SQL insert queryi for a run entry."""
+        raise('I broke this function. Delete it.')
         value = self.__sql_value_template.format(
             run_id = keyrun.run_id,
             dungeon = self.dungeon,
-            region = self.region,
-            faction = keyrun.faction,
             key_level = keyrun.keystone_level,
-            completed_timestamp = keyrun.completed_timestamp,
             period = self.period,
-            duration_in_ms = keyrun.duration_in_ms
+            completed_timestamp = keyrun.completed_timestamp,
+            duration_in_ms = keyrun.duration_in_ms,
+            faction = keyrun.faction,
+            region = self.region
         )
         return value
 
@@ -189,13 +189,40 @@ class KeyRunLeaderboard:
 
         Parses the 'leading_groups' component of the json, which
         contains a ranking of up to 500 individual key runs.
+        
+        If 'leading_groups' missing returns None.
         """
+        if 'leading_groups' not in self.json.keys():
+            return None
         keyruns = []
         for keyrun_json in self.json['leading_groups']:
             keyrun = KeyRun(keyrun_json)
             keyrun.generate_id(self.region)
             keyruns.append(keyrun)
         return keyruns
+    
+    def get_runs_as_tuple_list(self):    
+        """Return leaderboard as list of tuples, where each tuple is a run.
+
+        This list is meant to be fed to an SQL connector for a batch insert.
+        """ 
+        if not self.keyruns:
+            raise TypeError("""No key runs recorded. Either you have
+                not called the retrieval or it returned None.""")
+        runs = []
+        for run in self.keyruns:
+            tpl = (
+                run.run_id,
+                self.dungeon,
+                run.keystone_level,
+                self.period,
+                run.completed_timestamp,
+                run.duration_in_ms,
+                run.faction,
+                self.region
+            ) 
+            runs.append(tpl)
+        return runs
 
     def concat_runs_for_sql_insert(self):
         """Joins leaderboard runs into a single list.
@@ -353,60 +380,6 @@ class RealmRecord:
         return record
 
  
-class RealmRecordSQLFormatter:
-    """Formats Realm Record into string for injection into database."""
-
-    __sql_value_template = (
-        '('
-        '{id_primary_key},'
-        '{cluster_id},{realm_id},"{name}","{name_slug}",'
-        '{region},"{locale}","{timezone}"'
-        ')'
-    )
-    __destination_table = 'realm'
-
-    def __init__(self, records = None):
-        """Inits with single record, or list of records."""
-        self.records = records
-        self.generate_sql_value()        
-
-    def generate_sql_value_for_record(self, record):
-        """Crates VALUE component of SQL insert query."""
-        value = self.__sql_value_template.format(
-            id_primary_key = record.primary_key,
-            cluster_id = record.cluster_id,
-            realm_id = record.realm_id,
-            name = record.name,
-            name_slug = record.name_slug,
-            region = record.region,
-            locale = record.locale,
-            timezone = record.timezone
-        )
-        return value
-    
-    def generate_sql_value(self):
-        """Concatenates data into a single string."""
-        values = []
-        for record in self.records:
-            value_string = self.generate_sql_value_for_record(record)
-            values.append(value_string)
-        return values
-
-
-class QueryFactory:
-    """Create INSERT queries."""
-     
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def construct_insert_query(destination_table, values):
-        """Creates data-complete insert query."""
-        query = 'INSERT IGNORE INTO %s VALUES %s' % (destination_table,
-                                                     ','.join(values))
-        return query
-
-
 class Caller:
     """Abstracts API interactions into a high-level interface."""    
     __default_access_token_fp = '.api_tokens'   

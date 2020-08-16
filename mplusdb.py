@@ -7,8 +7,10 @@ class MplusDatabase():
     __utility_tables = ['realm', 'region', 'dungeon']
     __main_tables = ['period']
     __table_fields = {
-        'period' : ['region', 'id', 'start_timestamp', 'end_timestamp'] 
-    }
+        'period' : ['region', 'id', 'start_timestamp', 'end_timestamp'],
+        'run' : ['id', 'dungeon', 'level', 'period', 'timestamp', 
+                 'duration', 'faction', 'region']
+    }    
 
     def __init__(self, config_file_path):
         """Inits with database config file."""
