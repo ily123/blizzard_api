@@ -80,6 +80,19 @@ class MplusDatabase():
         finally:
             cursor.close()
             connection.close() 
+
+    def raw_batch_insert(self, query, data):
+        """Batch-inserts list of data according to provided query."""
+        connection = self.connect()
+        cursor = connection.cursor()
+        try:
+            cursor.executemany(query, data)
+            connection.commit()
+        except:
+            raise Exception('Problem with inserting data into MDB.')
+        finally:
+            cursor.close()
+            connection.close() 
     
     def get_table_fields(self, table):
         """Returns fieds in table, in correct order.

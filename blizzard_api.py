@@ -79,11 +79,26 @@ class UrlFactory:
         """Constructs url for time period call."""
         if period < 641:
             raise ValueError("""
-                Earliest allowd period in Blizzard DB is 641, you entered %d"""
+                Earliest allowed period in Blizz DB is 641, you entered %d"""
                 % period)
         endpoint = '/data/wow/mythic-keystone/period/{periodId}'.format(
             periodId = period)
         namespace = 'dynamic-{region}'.format(region = self.region)
+        call_url = self.get_request_call_url(endpoint, namespace)
+        return call_url
+    
+    def get_spec_index_url(self):
+        """Returns indices of playable specializations."""
+        endpoint = 'data/wow/playable-specialization/index'
+        namespace = 'static-{region}'.format(region = self.region)
+        call_url = self.get_request_call_url(endpoint, namespace)
+        return call_url 
+    
+    def get_spec_url(self, spec_id):
+        """Return url for playable spec call."""
+        endpoint = 'data/wow/playable-specialization/{spec_id}'.format(
+            spec_id = spec_id)
+        namespace = 'static-{region}'.format(region = self.region)
         call_url = self.get_request_call_url(endpoint, namespace)
         return call_url
 
@@ -142,7 +157,28 @@ class ResponseParser:
         leaderboard = KeyRunLeaderboard(json) 
         return leaderboard
 
+    @staticmethod 
+    def parse_spec_index_json(json):
+        """Parses spec index call response.""" 
+        specs = []
+        for spec in json['character_specializations']:
+            id_ = spec['id']
+            name = spec['name']
+            specs.append((id_, name)) 
+        return specs
     
+    @staticmethod
+    def parse_spec_json(json):
+        """Parses playable spec json."""
+        spec_id = json['id']
+        spec_name = json['name'].lower()
+        class_id = json['playable_class']['id']
+        class_name = json['playable_class']['name'].lower()
+        role = json['role']['type'].lower()
+        spec_info = [class_name, class_id, spec_name, spec_id, role]
+        return spec_info
+
+
 class KeyRunLeaderboard:
     """Container/parser for Key Run leaderboard."""
     __sql_value_template = ( 
@@ -293,19 +329,23 @@ class KeyRun:
              roster.append(RosterMember(member))
         return roster
 
-    def generate_id(self, region=999):
-        """Creates a unique record for the run.
+    def generate_id(self, region):
+        """Creates a unique record id for the run."""
 
-        This will serve as the PRIMARY KEY in the MySQL table. Uniqueness is
-        achieved by combining the completion timestamp with character id of 
-        the first player. (The same player can't be in multiple runs at the 
-        same time. Unless character ids are not unique accross realms/reagions  -- OMG NEED TO CHECK THIS.)
-        """
-        timestamp_in_sec = str(self.completed_timestamp)[0:-3]
+        #This will serve as the PRIMARY KEY in the MySQL table. Uniqueness is
+        #achieved by combining the truncated timestamp with character
+        #id of the first player. Character ids are loosely region-unique, and
+        #the same player id can't appear in two different keys at the same
+        #time witin a region.
+
+        timestamp = str(self.completed_timestamp)[1:-4]
         smallest_member_id = min([member.id_ for member in self.roster])
-        run_id = timestamp_in_sec + str(region) + str(smallest_member_id)
+        run_id = '%s%s%s' % (timestamp, region,
+            str(smallest_member_id).zfill(10))
         run_id = int(run_id)
-        self.run_id = run_id
+        if run_id >= 18446744073709551615: # max 64 bit int
+            raise ValueError('Oh oh. The run id exceeds 64-bit int limit.')
+        self.run_id = int(run_id)
 
 
 class RosterMember:
@@ -395,6 +435,43 @@ class Caller:
             raise ValueError("""Caller needs a valid access token
                 to query Blizzard API""")
         self.parser = ResponseParser()
+    
+    @staticmethod 
+    def send_request(call_url): 
+        response = requests.get(call_url)
+        if response.status_code != 200:
+            raise("""Call not successful 
+                [status code %s]: %s""" % (response.status_code, call_url))
+        return response 
+
+    def get_spec_indices(self):
+        """Gets list of spec ids and names."""
+        region = 'us'
+        url_factory = UrlFactory(self.access_token, region)
+        url = url_factory.get_spec_index_url()
+        response = self.send_request(url)
+        json = response.json()
+        specs = self.parser.parse_spec_index_json(json)
+        return specs
+    
+    def get_spec_by_index(self, spec_index):
+        """Returns full info for spec."""
+        region = 'us'
+        url_factory = UrlFactory(self.access_token, region)
+        url = url_factory.get_spec_url(spec_index)
+        response = self.send_request(url)
+        spec_info = self.parser.parse_spec_json(response.json())
+        return spec_info 
+        
+    def get_class_spec_table(self):
+        """Gets class/spec table."""
+        class_spec_table = []
+        specs = self.get_spec_indices()
+        for spec in specs:
+            spec_id = spec[0]
+            spec_info = self.get_spec_by_index(spec_id)
+            class_spec_table.append(spec_info)
+        return class_spec_table
 
     def get_leaderboard(self, region, realm, dungeon, period):
         """Gets leaderboard for specified region/realm/dungeon/period."""
@@ -403,9 +480,7 @@ class Caller:
             dungeon_id = dungeon,
             realm_id = realm,
             period = period) 
-        response = requests.get(call_url)
-        if response.status_code != 200:
-            raise('Leaderboard call failed.') 
+        response = self.send_request(call_url)
         leaderboard = self.parser.parse_keyrun_leaderboard_json(
             response.json())
         return leaderboard
