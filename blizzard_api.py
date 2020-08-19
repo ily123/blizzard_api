@@ -232,8 +232,7 @@ class KeyRunLeaderboard:
             return None
         keyruns = []
         for keyrun_json in self.json['leading_groups']:
-            keyrun = KeyRun(keyrun_json)
-            keyrun.generate_id(self.region)
+            keyrun = KeyRun(keyrun_json, self.region)
             keyruns.append(keyrun)
         return keyruns
     
@@ -260,6 +259,22 @@ class KeyRunLeaderboard:
             runs.append(tpl)
         return runs
 
+    def get_rosters_as_tuple_list(self):
+        """Returns roster data collated as list of tuples."""
+        rosters = []
+        for run in self.keyruns:
+            tpl = run.get_members_as_tuple_list()
+            rosters.extend(tpl)
+        return rosters
+    
+    def get_run_comps_as_vector_list(self):
+        """Return roster class/spec composition as list of lists."""
+        comps = []
+        for run in self.keyruns:
+            comp = run.get_composition_vector()
+            comps.append(comp)
+        return comps
+        
     def concat_runs_for_sql_insert(self):
         """Joins leaderboard runs into a single list.
        
@@ -307,11 +322,11 @@ class KeyRunLeaderboard:
 class KeyRun:
     """Container/parser for individual m+ run."""
 
-    def __init__(self, key_run_json):
+    def __init__(self, key_run_json, region):
         """Inits record with key run json."""
         self.key_run_json = key_run_json
+        self.region = region
         self.parse_json()
-        self.run_id = None
 
     def parse_json(self):
         """Parses the key run json string."""
@@ -321,6 +336,7 @@ class KeyRun:
         self.roster = self.parse_roster(self.key_run_json['members'])
         faction = self.roster[0].faction.lower()
         self.faction = 0 if 'alliance' in faction else 1 
+        self.run_id = self.generate_id(self.region)
 
     def parse_roster(self, members):
         """Extracts player info as a list of RosterMember objects."""
@@ -345,7 +361,37 @@ class KeyRun:
         run_id = int(run_id)
         if run_id >= 18446744073709551615: # max 64 bit int
             raise ValueError('Oh oh. The run id exceeds 64-bit int limit.')
-        self.run_id = int(run_id)
+        return int(run_id)
+    
+    def get_members_as_tuple_list(self):
+        """Returns roster members as list of tuples."""
+        members = []
+        for member in self.roster:
+            member_tuple = (
+                self.run_id,
+                member.id_,
+                member.name,
+                member.spec,
+                member.vanity_realm_id
+            )
+            members.append(member_tuple)
+        return members
+
+    def get_composition_vector(self):
+        """Construct one-hot style vector to repsent spec composition."""
+        #comp_vector = Utils().get_empty_comp_vector() # all counts are 0
+        #for member in self.roster:
+        #    mask = comp_vector.spec_id == member.spec            
+        #    comp_vector.loc[mask, 'count'] += 1
+        #if drop_labels:
+        #    return list(comp_vector['count'])
+        specs = Utils().get_all_spec_ids()
+        comp_vector = [0 for i in range(len(specs))]
+        for member in self.roster:
+            spec_index = specs.index(member.spec)
+            comp_vector[spec_index] += 1
+        comp_vector.insert(0, self.run_id)
+        return tuple(comp_vector)
 
 
 class RosterMember:
@@ -389,7 +435,6 @@ class RealmRecord:
         
         This will serve as PRIMARY KEY in the db table.
         """
-
         primary_key = '%s%s%s' % (self.region,
                                   self.cluster_id,
                                   self.realm_id)

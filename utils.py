@@ -1,5 +1,7 @@
 """Utility methods."""
 import re
+import pandas as pd
+
 
 class Utils:
     """Collection of utility methods."""
@@ -24,4 +26,15 @@ class Utils:
         cap = pattern.search(url)
         region_slug = cap[2]
         return region_slug
-
+    
+    @staticmethod
+    def get_all_spec_ids():
+        """Return sorted list of all specs ids."""
+        specs = [
+            62, 63, 64, 65, 66, 70, 71, 72, 73,
+            102, 103, 104, 105, 250, 251, 252, 253, 
+            254, 255, 256, 257, 258, 259, 260, 261, 
+            262, 263, 264, 265, 266, 267, 268, 269,
+            270, 577, 581
+        ]
+        return specs

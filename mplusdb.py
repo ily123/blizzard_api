@@ -4,13 +4,53 @@ import pandas as pd
 
 class MplusDatabase():
     """Class for working with M+ MySQL database."""
-    __utility_tables = ['realm', 'region', 'dungeon']
+    __utility_tables = ['realm', 'region', 'dungeon', 'spec']
     __main_tables = ['period']
-    __table_fields = {
+    __table_fields = { #these are used to formulate batch inserts queries
         'period' : ['region', 'id', 'start_timestamp', 'end_timestamp'],
         'run' : ['id', 'dungeon', 'level', 'period', 'timestamp', 
-                 'duration', 'faction', 'region']
-    }    
+                 'duration', 'faction', 'region'],
+        'roster' : ['run_id', 'character_id', 'name', 'spec', 'realm'],
+        'run_composition' : [
+            'run_id',
+            'mage_arcane',
+            'mage_fire',
+            'mage_frost',
+            'paladin_holy',
+            'paladin_protection',
+            'paladin_retribution',
+            'warrior_arms',
+            'warrior_fury',
+            'warrior_protection',
+            'druid_balance',
+            'druid_feral',
+            'druid_guardian',
+            'druid_restoration',
+            'death_knight_blood',
+            'death_knight_frost',
+            'death_knight_unholy',
+            'hunter_beast_mastery',
+            'hunter_marksmanship',
+            'hunter_survival',
+            'priest_discipline',
+            'priest_holy',
+            'priest_shadow',
+            'rogue_assassination',
+            'rogue_outlaw',
+            'rogue_subtlety',
+            'shaman_elemental',
+            'shaman_enhancement',
+            'shaman_restoration',
+            'warlock_affliction',
+            'warlock_demonology',
+            'warlock_destruction',
+            'monk_brewmaster',
+            'monk_windwalker',
+            'monk_mistweaver',
+            'demon_hunter_havoc',
+            'demon_hunter_vengeance'
+        ]
+    } #is this time to move these into their own container?   
 
     def __init__(self, config_file_path):
         """Inits with database config file."""
@@ -111,6 +151,7 @@ class MplusDatabase():
               'realm' : mapping of realm names, ids, and cluter ids
               'dungeon' : mapping of dungeon names and ids
               'region' : mapping of region tokens to ids
+              'spec' : mapping of class-spec ids and names
         Returns
         -------
         data : pd.DataFrame
