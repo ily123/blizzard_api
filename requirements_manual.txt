@@ -1,7 +1,6 @@
-ipykernel==5.3.4
-numpy==1.19.1
-pandas==1.1.0
+jupyter
+numpy
+pandas
 mysql-connector-python
 requests
 matplotlib
-requests
