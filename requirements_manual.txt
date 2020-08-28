@@ -1,6 +1,8 @@
 jupyter
+plotly
 numpy
 pandas
+scipy
 mysql-connector-python
 requests
 matplotlib

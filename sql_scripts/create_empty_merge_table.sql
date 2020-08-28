@@ -1,7 +1,15 @@
-/* Generate one-hot encoded run comp table. Auto-generated.*/
 use keyruns;
-CREATE table run_composition(
-	run_id bigint unsigned not null PRIMARY KEY,
+
+CREATE table temp_run(
+	id bigint unsigned not null,
+    dungeon smallint unsigned not null,
+    level tinyint unsigned not null,
+    period smallint unsigned not null,
+    timestamp bigint unsigned not null,
+    duration bigint unsigned not null,
+    faction tinyint unsigned not null,
+    region tinyint unsigned not null,
+    id2 bigint unsigned not null,
 	mage_arcane tinyint unsigned not null DEFAULT 0,
 	mage_fire tinyint unsigned not null DEFAULT 0,
 	mage_frost tinyint unsigned not null DEFAULT 0,
