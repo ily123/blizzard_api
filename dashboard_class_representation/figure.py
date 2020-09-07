@@ -53,23 +53,17 @@ class RidgePlot:
         sorted_summary = self.summary.sort_values(
             by = sort_order, ascending = False)
         return sorted_summary
-   
-    # generate_components()
-    # self.annotations = self.get_annotations()
-    # self.layout = self.get_layout()
-    # 
-    # assemble_figure():
-    # fig = go.Figure()
-    # fig.data = self.traces
-    # fig.layout = self.layout
-    # fig.update_layout(annotations=annotations)
-    # return fig
-    
+
     def generate_components(self):
         """Generates plotly figure components."""
         sorted_summary = self.sort_summary(sort_by = 'best_key')
         self.traces = self.construct_traces(sorted_summary)
-        self.annotations = self.construct_annotations(sorted_summary)
+
+        self.annotations = {}
+        self.annotations['button_label'] = self.make_role_selector_button_text_label()
+        self.annotations['legend_best_key'] = self.make_best_key_arrow_annotation()
+        self.annotations['spec_name'] = self.construct_annotations_names(sorted_summary)
+        self.annotations['spec_best_key'] = self.construct_annotations(sorted_summary)
         self.buttons = self.construct_buttons()
     
     def assemble_components(self):
@@ -77,10 +71,26 @@ class RidgePlot:
         fig = go.Figure(data = self.get_all_traces())
         fig.update_layout(width=900, height=1500, showlegend=False)
         fig.update_layout(updatemenus = self.buttons)
-        fig.update_layout(annotations = self.get_all_annotations())
-        return fig
+        fig.update_layout(annotations = self.keep_annotations('all'))
+        
+        xaxis = dict(title = '<b>KEY LEVEL</b>', range = [-6,30],
+            tickvals = [0] + [i for i in range(3, 30, 5)],
+            ticktext = ['+2'] + ['+' + str(i+2) for i in range(3, 30, 5)])
 
- 
+        xaxis2 = go.layout.XAxis(range = [-6,30],
+            tickvals = [0] + [i for i in range(3, 30, 5)],
+            ticktext = ['+2'] + ['+' + str(i+2) for i in range(3, 30, 5)],
+            side = 'top', overlaying = 'x')#, anchor = 'free', position = 1)
+
+        yaxis = go.layout.YAxis(range = [0, 12_300_000], tickvals = []) 
+        fig.update_layout(yaxis = yaxis)
+        fig.update_layout(xaxis = xaxis, xaxis2 = xaxis2)
+        # this is a stupid hack... The second axis won't show up unless 
+        # there is a trace associated with it. So associate this dummy trace
+        # with it. The trace is invisible.
+        fig.add_trace(go.Scatter(x=[1], y=[1], xaxis='x2', visible = False))
+        return fig
+    
     def construct_traces(self, sorted_summary):
         """Makes line/fill traces of the data distribution."""    
         key_levels = list(self.data)
@@ -151,6 +161,23 @@ class RidgePlot:
             annotations[spec_id] = anno 
         return annotations
 
+    def construct_annotations_names(self, sorted_summary):
+        """Make best key annotations."""
+        annotations = {}
+        vertical_offset = 300_000
+        num_specs = len(sorted_summary)
+        specs = blizzcolors.Specs()
+        for index, row in enumerate(list(sorted_summary.values)):
+            spec_id, _, best_key_level  = row
+            spec_name = specs.get_spec_name(spec_id).upper()
+            baseline_y = vertical_offset * (num_specs - index)
+            anno = self.get_spec_name_annotation(
+                x = 0,
+                y = baseline_y,
+                text = spec_name)
+            annotations[spec_id] = anno 
+        return annotations
+
     def get_recolor_pattern(self, keep_role):
         """Generates color list that informs recolor of the traces.
         
@@ -189,67 +216,65 @@ class RidgePlot:
         return recolor
    
     def keep_annotations(self, keep_role):
-        """Makes annotation list based on spec role."""
-        valid_roles = ['tank', 'healer', 'mdps', 'rdps']
+        """Returns annotation list based on spec role."""
         keep_role = keep_role.lower()
+        keep_annotations = []
+        always_keep = [self.annotations['button_label'],
+            self.annotations['legend_best_key']]
+        keep_annotations.extend(always_keep)
+        if keep_role == 'all':
+            keep_annotations.extend(self.annotations['spec_best_key'].values())
+            keep_annotations.extend(self.annotations['spec_name'].values())
+        else:
+            names = self.sort_by_spec(
+                self.annotations['spec_name'], keep_role)
+            best_keys = self.sort_by_spec(
+                self.annotations['spec_best_key'], keep_role)
+            keep_annotations.extend(names)
+            keep_annotations.extend(best_keys)
+        return keep_annotations 
+
+    def sort_by_spec(self, annotations, keep_role):
+        """Given a dictionary of annotations, keep those that match role.""" 
+        valid_roles = ['tank', 'healer', 'mdps', 'rdps']
+        specs = blizzcolors.Specs()
         if keep_role not in valid_roles:
             raise ValueError('Spec role invalid. Must be one of: %s')
         keep_annotations = []
-        specs = blizzcolors.Specs()
-        for spec_id, annotation in self.annotations.items():
+        for spec_id, annotation in annotations.items():
             spec_role = specs.get_role(spec_id)
             if spec_role == keep_role:
                 keep_annotations.append(annotation)
         return keep_annotations 
-             
+         
     def construct_buttons(self):
         """Creates interactive buttons for the figure."""    
         role_selector = self.make_role_selector_buttons() 
-        anno_display = self.make_annotation_button()
-        return [role_selector, anno_display]
+        #clear_button = self.make_annotation_button()
+        #return [role_selector, clear_button]
+        return [role_selector]
 
-    def make_annotation_button(self):
-        """Creates hide/show annotation button."""
-        default_annotations = self.get_all_annotations()
+    def make_clear_button(self):
+        """Creates buttoni that clears best key annotations."""
         anno_display = dict(
-            type = 'buttons', direction = 'down',
+            type = 'buttons', xanchor = 'right', x = 1, y = 1.05,
             buttons = [
-                dict(args = [{'annotations': []}],
-                    label = 'CLEAR', method = 'relayout')
+                dict(args = [{'annotations': self.keep_annotations('all')}],
+                    label = 'CLEAR BEST KEY', method = 'relayout')
             ],
             showactive = False
         )
         return anno_display
 
-    def make_role_selector_buttons_old(self):
-        """Creates row of bottons that recolor plot based on spec role."""
-        default_colors = self.get_default_colors()
-        role_selector = dict(
-            type = 'buttons', direction = 'down',
-            buttons = [
-                dict(args=[{'fillcolor': default_colors},
-                    {'annotations': self.get_all_annotations()}],
-                    label = 'ALL', method = 'update'),
-                dict(args=[{'fillcolor': self.get_recolor_pattern('tank')}],
-                    label = 'TANK', method = 'update'),
-                dict(args=[{'fillcolor': self.get_recolor_pattern('healer')}],
-                    label = 'HEALER', method = 'update'),
-                dict(args=[{'fillcolor': self.get_recolor_pattern('mdps')}],
-                    label = 'MELEE', method = 'update'),
-                dict(args=[{'fillcolor': self.get_recolor_pattern('rdps')}],
-                    label = 'RANGE', method = 'update')
-            ]
-        )
-        return role_selector
-    
     def make_role_selector_buttons(self):
         """Creates row of bottons that recolor plot based on spec role."""
         default_colors = self.get_default_colors()
         role_selector = dict(
-            type = 'buttons', direction = 'down',
+            type = 'buttons', 
+            direction = 'left', xanchor ='left', x = 0.07, y = 1.05,
             buttons = [
                 dict(args=[{'fillcolor': default_colors},
-                    {'annotations': self.get_all_annotations()}],
+                    {'annotations': self.keep_annotations('all')}],
                     label = 'ALL', method = 'update'),
                 dict(args=[{'fillcolor': self.get_recolor_pattern('tank')},
                     {'annotations': self.keep_annotations('tank')}],
@@ -266,6 +291,24 @@ class RidgePlot:
             ]
         )
         return role_selector
+    
+    def make_role_selector_button_text_label(self):
+        """Creates a text label for the botton row."""
+        annotation = dict(x = 0, y = 1.045, xref = 'paper',  yref = 'paper',
+            text = 'SPECS:',
+            showarrow = False)
+        return annotation
+    
+    def make_best_key_arrow_annotation(self): 
+        """Makes BEST KEY label + arrow that points to the best key."""
+        annotation = dict(x = 29, y = 11_300_000,
+            align = 'center',
+            showarrow = True, ax = 0, ay = -20,
+            arrowsize = 2, arrowwidth = 1, arrowhead = 6,
+            #arrowcolor = 'rgba(0,0,0,0.75)'
+            arrowcolor = 'gray',
+            text = 'BEST<br>KEY')
+        return annotation
 
     def get_default_colors(self):
         """Extracts colors from traces."""
@@ -288,7 +331,18 @@ class RidgePlot:
             align = 'center',
             showarrow = True, ax = 0, ay = -15,
             arrowsize = 2, arrowwidth = 1, arrowhead = 6,
-            #arrowcolor = 'rgba(0,0,0,0.75)'
             arrowcolor = 'gray'
+        )
+        return annotation 
+
+    def get_spec_name_annotation(self, x, y, text):
+        """Creates text annotation of each spec's best key."""
+        annotation = dict(x = x, y = y, text = text,
+            font = dict(color = 'black', size = 15,
+                        family = 'Monaco, regular'),
+            showarrow = False,
+            xanchor = 'right',
+            yanchor = 'bottom',
+            borderpad = 0
         )
         return annotation 
