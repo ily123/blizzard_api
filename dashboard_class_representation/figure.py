@@ -13,10 +13,10 @@ importlib.reload(blizzcolors)
 
 class RidgePlot:
     """Draws the ridge plot."""
-   
+
     def __init__(self, data):
         """Inits with the formatted pandas dataframe.
-   
+
         Params
         ------
         data : DataFrame
@@ -24,7 +24,7 @@ class RidgePlot:
         """
         self.data = data # the table should already be pivoted
         self.summary = self.get_summary_table(data)
-    
+
     @staticmethod
     def find_highest_key(row):
         """Finds index of the last non-zero int in list."""
@@ -33,8 +33,8 @@ class RidgePlot:
             if a != 0:
                 highest_key_index = i
         highest_key_level = highest_key_index + 2 #key level starts with 2
-        return highest_key_level 
- 
+        return highest_key_level
+
     def get_summary_table(self, data):
         """Computes total population and best key for each spec."""
         summary = pd.DataFrame(data.index)
@@ -42,12 +42,12 @@ class RidgePlot:
         summary['best_key'] = data.apply(
             lambda x: self.find_highest_key(x) , axis=1).values
         return summary
- 
+
     def sort_summary(self, sort_by = 'best_key'):
         if sort_by not in ['best_key', 'total_run']:
             raise ValueError(('Data can be sorted either by best_key'
                 'or by total_run number of runs'))
-        sort_order = ['best_key', 'total_run'] 
+        sort_order = ['best_key', 'total_run']
         if sort_by == 'total_run':
             sort_order = sort_order[::-1]
         sorted_summary = self.summary.sort_values(
@@ -65,14 +65,14 @@ class RidgePlot:
         self.annotations['spec_name'] = self.construct_annotations_names(sorted_summary)
         self.annotations['spec_best_key'] = self.construct_annotations(sorted_summary)
         self.buttons = self.construct_buttons()
-    
+
     def assemble_components(self):
 
         fig = go.Figure(data = self.get_all_traces())
         fig.update_layout(width=900, height=1500, showlegend=False)
         fig.update_layout(updatemenus = self.buttons)
         fig.update_layout(annotations = self.keep_annotations('all'))
-        
+
         xaxis = dict(title = '<b>KEY LEVEL</b>', range = [-6,30],
             tickvals = [0] + [i for i in range(3, 30, 5)],
             ticktext = ['+2'] + ['+' + str(i+2) for i in range(3, 30, 5)])
@@ -82,17 +82,17 @@ class RidgePlot:
             ticktext = ['+2'] + ['+' + str(i+2) for i in range(3, 30, 5)],
             side = 'top', overlaying = 'x')#, anchor = 'free', position = 1)
 
-        yaxis = go.layout.YAxis(range = [0, 12_300_000], tickvals = []) 
+        yaxis = go.layout.YAxis(range = [0, 12_300_000], tickvals = [])
         fig.update_layout(yaxis = yaxis)
         fig.update_layout(xaxis = xaxis, xaxis2 = xaxis2)
-        # this is a stupid hack... The second axis won't show up unless 
+        # this is a stupid hack... The second axis won't show up unless
         # there is a trace associated with it. So associate this dummy trace
         # with it. The trace is invisible.
         fig.add_trace(go.Scatter(x=[1], y=[1], xaxis='x2', visible = False))
         return fig
-    
+
     def construct_traces(self, sorted_summary):
-        """Makes line/fill traces of the data distribution."""    
+        """Makes line/fill traces of the data distribution."""
         key_levels = list(self.data)
         key_levels_x = [i - 2 for i in list(key_levels)] # x =0, key - 2
         vertical_offset = 300_000
@@ -102,7 +102,7 @@ class RidgePlot:
         for index, row in enumerate(list(sorted_summary.values)):
             spec_id, total_runs, best_key_level  = row
             spec_color = 'rgba(%d,%d,%d,0.9)' % specs.get_color(spec_id)
-            runs = self.data.loc[self.data.index == spec_id].values[0] 
+            runs = self.data.loc[self.data.index == spec_id].values[0]
             #horizontal baseline to underline each distribution
             baseline_y = vertical_offset * (num_specs - index)
             baseline = self.get_ridge_baseline(x = key_levels_x,
@@ -112,11 +112,11 @@ class RidgePlot:
                 x = key_levels_x,
                 y = [baseline_y + run for run in runs],
                 hover_y = runs,
-                color = spec_color, 
+                color = spec_color,
                 name = specs.get_spec_name(spec_id))
             traces[spec_id] = {'ridge': ridge, 'baseline': baseline}
         return traces
-    
+
     def get_ridge_baseline(self, x, y):
         """Creates baseline for distibution (ridge)."""
         trace = go.Scatter(
@@ -125,20 +125,20 @@ class RidgePlot:
             hoverinfo = 'skip'
         )
         return trace
-  
+
     def get_ridge(self, x, y, hover_y, color, name):
         """Creates distribution plot (ridge)."""
         trace = go.Scatter(name = name.upper(),
             x = x, y = y,
-            fill = 'tozerox', 
+            fill = 'tozerox',
             fillcolor = color,
             line = dict(width = 1, color = 'black', shape = 'spline'),
-            text = [f'{y:,}' for y in hover_y], 
+            text = [f'{y:,}' for y in hover_y],
             customdata = [i + 2 for i in x],
-            hovertemplate = 'KEY LEVEL: +%{customdata}<br>RUNS: %{text}' 
-        )      
+            hovertemplate = 'KEY LEVEL: +%{customdata}<br>RUNS: %{text}'
+        )
         return trace
-    
+
     def get_all_traces(self):
         """Extracts raw trace objects from trace dict."""
         trace_list = []
@@ -157,8 +157,8 @@ class RidgePlot:
             baseline_y = vertical_offset * (num_specs - index)
             anno = self.get_best_key_annotation(
                 x = best_key_level - 2,
-                y = baseline_y, text = '+%d ' % best_key_level) 
-            annotations[spec_id] = anno 
+                y = baseline_y, text = '+%d ' % best_key_level)
+            annotations[spec_id] = anno
         return annotations
 
     def construct_annotations_names(self, sorted_summary):
@@ -175,12 +175,12 @@ class RidgePlot:
                 x = 0,
                 y = baseline_y,
                 text = spec_name)
-            annotations[spec_id] = anno 
+            annotations[spec_id] = anno
         return annotations
 
     def get_recolor_pattern(self, keep_role):
         """Generates color list that informs recolor of the traces.
-        
+
         Given a spec role, recolors all traces not of that role to gray.
 
         Parameters
@@ -191,7 +191,7 @@ class RidgePlot:
         Returns
         -------
         recolor : list
-            list of colors, where color at index i corresponds to trace at 
+            list of colors, where color at index i corresponds to trace at
             index i in fig.data
         """
         valid_roles = ['tank', 'healer', 'mdps', 'rdps']
@@ -200,7 +200,7 @@ class RidgePlot:
             raise ValueError('Spec role invalid. Must be one of: %s')
         recolor = []
         specs = blizzcolors.Specs()
-        custom_gray = 'rgba(0,0,0,0.3)' 
+        custom_gray = 'rgba(0,0,0,0.3)'
         for spec_id, spec_traces in self.traces.items():
             spec_role = specs.get_role(spec_id)
             #reassign color based on spec role
@@ -208,13 +208,13 @@ class RidgePlot:
             if spec_role == keep_role:
                 new_ridge_color = spec_traces['ridge'].fillcolor
             else:
-                new_ridge_color = custom_gray 
+                new_ridge_color = custom_gray
             #keep baseline the original color
             baseline_color = spec_traces['baseline'].line.color
             recolor.append(new_ridge_color)
             recolor.append(baseline_color)
         return recolor
-   
+
     def keep_annotations(self, keep_role):
         """Returns annotation list based on spec role."""
         keep_role = keep_role.lower()
@@ -232,10 +232,10 @@ class RidgePlot:
                 self.annotations['spec_best_key'], keep_role)
             keep_annotations.extend(names)
             keep_annotations.extend(best_keys)
-        return keep_annotations 
+        return keep_annotations
 
     def sort_by_spec(self, annotations, keep_role):
-        """Given a dictionary of annotations, keep those that match role.""" 
+        """Given a dictionary of annotations, keep those that match role."""
         valid_roles = ['tank', 'healer', 'mdps', 'rdps']
         specs = blizzcolors.Specs()
         if keep_role not in valid_roles:
@@ -245,11 +245,11 @@ class RidgePlot:
             spec_role = specs.get_role(spec_id)
             if spec_role == keep_role:
                 keep_annotations.append(annotation)
-        return keep_annotations 
-         
+        return keep_annotations
+
     def construct_buttons(self):
-        """Creates interactive buttons for the figure."""    
-        role_selector = self.make_role_selector_buttons() 
+        """Creates interactive buttons for the figure."""
+        role_selector = self.make_role_selector_buttons()
         #clear_button = self.make_annotation_button()
         #return [role_selector, clear_button]
         return [role_selector]
@@ -270,7 +270,7 @@ class RidgePlot:
         """Creates row of bottons that recolor plot based on spec role."""
         default_colors = self.get_default_colors()
         role_selector = dict(
-            type = 'buttons', 
+            type = 'buttons',
             direction = 'left', xanchor ='left', x = 0.07, y = 1.05,
             buttons = [
                 dict(args=[{'fillcolor': default_colors},
@@ -291,15 +291,15 @@ class RidgePlot:
             ]
         )
         return role_selector
-    
+
     def make_role_selector_button_text_label(self):
         """Creates a text label for the botton row."""
         annotation = dict(x = 0, y = 1.045, xref = 'paper',  yref = 'paper',
             text = 'SPECS:',
             showarrow = False)
         return annotation
-    
-    def make_best_key_arrow_annotation(self): 
+
+    def make_best_key_arrow_annotation(self):
         """Makes BEST KEY label + arrow that points to the best key."""
         annotation = dict(x = 29, y = 11_300_000,
             align = 'center',
@@ -317,12 +317,12 @@ class RidgePlot:
             default_colors.append(spec_traces['ridge'].fillcolor)
             default_colors.append(spec_traces['baseline'].line.color)
         return default_colors
-    
+
     def get_all_annotations(self):
         """Returns all annotations that figure shows by default."""
         x = [a for a in self.annotations.values()]
         return x
- 
+
     def get_best_key_annotation(self, x, y, text):
         """Creates text annotation of each spec's best key."""
         annotation = dict(x = x, y = y, text = text,
@@ -333,7 +333,7 @@ class RidgePlot:
             arrowsize = 2, arrowwidth = 1, arrowhead = 6,
             arrowcolor = 'gray'
         )
-        return annotation 
+        return annotation
 
     def get_spec_name_annotation(self, x, y, text):
         """Creates text annotation of each spec's best key."""
@@ -345,4 +345,4 @@ class RidgePlot:
             yanchor = 'bottom',
             borderpad = 0
         )
-        return annotation 
+        return annotation

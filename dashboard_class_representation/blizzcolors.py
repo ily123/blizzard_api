@@ -78,6 +78,17 @@ class Specs:
             if spec['spec_id'] == spec_id:
                 return spec['role']
         raise ValueError('spec id not found in spec table')
+    
+    def get_spec_ids_for_role(self, role):
+        """Get list of spec ids for role."""
+        valid_roles = ['tank', 'healer', 'mdps', 'rdps']
+        if role not in valid_roles:
+            raise ValueError('Spec role invalid. Must be one of: %s')
+        role_specs = []
+        for spec in self.specs:
+            if spec['role'] == role:
+                role_specs.append(spec['spec_id'])                
+        return role_specs
 
     @staticmethod
     def get_specs():
