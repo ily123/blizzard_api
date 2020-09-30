@@ -75,11 +75,17 @@ class RidgePlot:
         sorted_summary = self.summary.sort_values(by=sort_order, ascending=False)
         return sorted_summary
 
+    def _calculate_vertical_offset(self):
+        """Calculates size of vertical gap between traces."""
+        # let's make the gap be as wide as median # of keys at +15 level
+        gap = self.data.max(axis=1).median()
+        return gap
+
     def _construct_traces(self, sorted_summary):
         """Makes line/fill traces of the data distribution."""
         key_levels = list(self.data)
         key_levels_x = [i - 2 for i in list(key_levels)]  # x =0, key - 2
-        vertical_offset = 300_000
+        vertical_offset = self._calculate_vertical_offset()
         num_specs = len(self.summary)
         specs = blizzcolors.Specs()
         traces = {}
@@ -172,7 +178,7 @@ class RidgePlot:
     def _make_spec_name_annos(self, sorted_summary):
         """Make spec name annotations."""
         annotations = {}
-        vertical_offset = 300_000
+        vertical_offset = self._calculate_vertical_offset()
         num_specs = len(sorted_summary)
         specs = blizzcolors.Specs()
         for index, row in enumerate(list(sorted_summary.values)):
@@ -203,7 +209,7 @@ class RidgePlot:
     def _make_spec_best_key_annos(self, sorted_summary):
         """Make best key annotations for each spec."""
         annotations = {}
-        vertical_offset = 300_000
+        vertical_offset = self._calculate_vertical_offset()
         num_specs = len(sorted_summary)
         for index, row in enumerate(list(sorted_summary.values)):
             spec_id, _, best_key_level = row
@@ -235,12 +241,11 @@ class RidgePlot:
         )
         return annotation
 
-    @staticmethod
-    def _make_best_key_pointer_anno():
+    def _make_best_key_pointer_anno(self):
         """Makes BEST KEY label + arrow that points to the best key."""
         annotation = dict(
             x=29,
-            y=11_300_000,
+            y=self._calculate_vertical_offset() * (36 + 1.5),
             align="center",
             showarrow=True,
             ax=0,
@@ -412,7 +417,9 @@ class RidgePlot:
             overlaying="x",
         )
 
-        yaxis = go.layout.YAxis(range=[0, 12_300_000], tickvals=[])
+        bin_ymax = self.data.to_numpy().max()  # tallest spec/key bin
+        ymax = 36 * self._calculate_vertical_offset() + bin_ymax + (bin_ymax * 0.1)
+        yaxis = go.layout.YAxis(range=[0, ymax], tickvals=[])
         fig.update_layout(yaxis=yaxis)
         fig.update_layout(xaxis=xaxis, xaxis2=xaxis2)
         # this is a stupid hack... The second axis won't show up unless
