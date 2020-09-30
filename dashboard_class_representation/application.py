@@ -63,18 +63,10 @@ def make_bubble_plot(data):
 
 figure_list = html.Ul(
     children=[
-        html.Li(
-            html.A(
-                "FIGURE 1: Overview of all keys completed this season", href="#figure1"
-            )
-        ),
-        html.Li(html.A("FIGURE 2: Spec participation vs its peers.", href="#figure2")),
-        html.Li(
-            html.A(
-                "FIGURE 3: Changes in top 500 representation week-to-week.",
-                href="#figure3",
-            )
-        ),
+        html.Li(html.A("Overview of all keys completed this season", href="#figure1")),
+        html.Li(html.A("Detailed Look at Spec Performance", href="#figure2")),
+        html.Li(html.A("Weekly top 500", href="#figure3")),
+        html.Li(html.A("FAQ", href="#faq")),
     ]
 )
 
@@ -86,8 +78,8 @@ role_options = [
 ]
 
 radio_options = [
-    {"label": "Stacked Area Chart", "value": "area"},
-    {"label": "Bar", "value": "bar"},
+    {"label": "Bar Chart", "value": "bar"},
+    {"label": "Area Chart", "value": "area"},
 ]
 
 scratch = """
@@ -111,7 +103,7 @@ def construct_figure_header(elements):
     """Constructs premade text elements that preceed figure."""
     children = [
         html.A(id=elements["anchor_id"]),
-        html.H4(elements["header_title"]),
+        html.H4(elements["header_title"].upper()),
         dcc.Markdown(elements["summary"]),
         html.Details(
             children=[html.Summary("Key Insights"), dcc.Markdown(elements["insight"])]
@@ -194,6 +186,9 @@ figure_header_elements = {
             To see how the meta changes through the season, we sample the top 500 keys
             for each dungeon (that's 6000 total keys) for each week. We then count the
             number of times each spec appears in this weekly top 500 sample.
+
+            Hint: Click on the spec names in the legend to add/remove them from the
+            figure.
             """,
         insight="""
             * The meta is very stable within a single patch. Spec representation within
@@ -259,21 +254,17 @@ errata_and_faq = dcc.Markdown(  # &nbsp; is a hacky way to add a blank line to M
 
     **Will you make more dashboards?**
 
-    Yep. My goal is to add something new every 1 to 3 months, so by the end of SL
-    this becomes a full-featured website with interactive dashboards and
-    tools.
+    Yep. My goal is to add something new every 1 to 3 months.
 
     &nbsp;
 
     **I saw a mistake, have a comment, have an idea**
 
-    You can reach me on discord at []. Don't be shy.
+     My discord handle is []. Drop me a note whenever :)
 
     """
 )
 
-
-# external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 
 data = load_data()
 week_data = load_week_data()
@@ -283,57 +274,95 @@ fig_hist = generate_run_histogram()
 fig2 = generate_stack_figure(data, "key", "mdps", "bar")
 fig3 = generate_stack_figure(week_data, "week", "mdps", "bar")
 
-app = dash.Dash(__name__)  # , external_stylesheets=["test.css"])
+app = dash.Dash(__name__)
 application = app.server
+app.title = "Benched: M+ Analytics"
 app.layout = html.Div(
-    children=[
-        html.H1(children="I get declined from M+ LFG! What shoud I play?"),
-        figure_list,
-        html.Div(children=construct_figure_header(figure_header_elements["figure1"])),
-        dcc.Tabs(
-            children=[
-                dcc.Tab(
-                    label="RUNS BY SPEC & KEY LEVEL",
-                    children=[dcc.Graph(id="example-graph", figure=fig)],
-                ),
-                dcc.Tab(
-                    label="RUNS BY SPEC",
-                    children=[dcc.Graph(id="fig1-bubble-chart", figure=fig_bubble)],
-                ),
-                dcc.Tab(
-                    label="RUNS BY KEY LEVEL",
-                    children=[dcc.Graph(id="fig1-key-hist", figure=fig_hist)],
-                ),
-            ]
-        ),
-        html.Div(children=construct_figure_header(figure_header_elements["figure2"])),
-        dcc.RadioItems(
-            id="figure2-radio",
-            options=radio_options,
-            value="area",
-        ),
-        dcc.Dropdown(
-            id="figure2-dropdown",
-            options=role_options,
-            value="tank",
-            clearable=False,
-        ),
-        dcc.Graph(id="keylevel-stacked-fig", figure=fig2),
-        html.Div(children=construct_figure_header(figure_header_elements["figure3"])),
-        dcc.RadioItems(
-            id="figure3-radio",
-            options=radio_options,
-            value="area",
-        ),
-        dcc.Dropdown(
-            id="figure3-dropdown",
-            options=role_options,
-            value="tank",
-            clearable=False,
-        ),
-        dcc.Graph(id="week-stacked-fig", figure=fig3),
-        html.Div(errata_and_faq),
-    ]
+    html.Div(
+        id="wrapper",
+        children=[
+            html.H1(children="Mythic+ at a glance"),
+            figure_list,
+            html.Div(
+                className="figure-header",
+                children=construct_figure_header(figure_header_elements["figure1"]),
+            ),
+            dcc.Tabs(
+                children=[
+                    dcc.Tab(
+                        label="RUNS BY SPEC & KEY LEVEL",
+                        children=[
+                            dcc.Graph(
+                                className="figure",
+                                id="example-graph",
+                                figure=fig,
+                                config=dict(staticPlot=True),
+                                # add margin here to compensate for title squish
+                                style={"margin-top": "20px"},
+                            )
+                        ],
+                    ),
+                    dcc.Tab(
+                        label="RUNS BY SPEC",
+                        children=[
+                            dcc.Graph(
+                                className="figure",
+                                id="fig1-bubble-chart",
+                                figure=fig_bubble,
+                            )
+                        ],
+                    ),
+                    dcc.Tab(
+                        label="RUNS BY KEY LEVEL",
+                        children=[
+                            dcc.Graph(
+                                className="figure", id="fig1-key-hist", figure=fig_hist
+                            )
+                        ],
+                    ),
+                ]
+            ),
+            html.Hr(),
+            html.Div(
+                className="figure-header",
+                children=construct_figure_header(figure_header_elements["figure2"]),
+            ),
+            dcc.RadioItems(
+                id="figure2-radio",
+                options=radio_options,
+                value="bar",
+            ),
+            dcc.Dropdown(
+                className="dropdown",
+                id="figure2-dropdown",
+                options=role_options,
+                value="tank",
+                clearable=False,
+            ),
+            dcc.Graph(id="keylevel-stacked-fig", figure=fig2),
+            html.Hr(),
+            html.Div(
+                className="figure-header",
+                children=construct_figure_header(figure_header_elements["figure3"]),
+            ),
+            dcc.RadioItems(
+                id="figure3-radio",
+                options=radio_options,
+                value="bar",
+            ),
+            dcc.Dropdown(
+                className="dropdown",
+                id="figure3-dropdown",
+                options=role_options,
+                placeholder="SELECT SPEC ROLE",
+                value="tank",
+                clearable=False,
+            ),
+            dcc.Graph(id="week-stacked-fig", figure=fig3),
+            html.Hr(),
+            html.Div(id="faq", children=errata_and_faq),
+        ],
+    )
 )
 
 

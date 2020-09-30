@@ -365,7 +365,7 @@ class RidgePlot:
             direction="left",
             xanchor="left",
             x=0.07,
-            y=1.05,
+            y=1.045,
             buttons=buttons,
         )
         return role_selector
@@ -374,7 +374,7 @@ class RidgePlot:
     def _make_role_selector_button_text_label():
         """Creates a text label for the botton row."""
         annotation = dict(
-            x=0, y=1.045, xref="paper", yref="paper", text="SPECS:", showarrow=False
+            x=0, y=1.04, xref="paper", yref="paper", text="SPECS:", showarrow=False
         )
         return annotation
 
@@ -419,6 +419,15 @@ class RidgePlot:
         # there is a trace associated with it. So associate this dummy trace
         # with the secondary axis. The trace is invisible.
         fig.add_trace(go.Scatter(x=[1], y=[1], xaxis="x2", visible=False))
+
+        title = dict(
+            yref="container",
+            yanchor="top",
+            y=0.99,
+            x=0.5,
+            text="<b>SPECS SORTED BY BEST KEY COMPLETED AND TOTAL RUNS (BFA 8.3)</b>",
+        )
+        fig.update_layout(title=title)
         return fig
 
 
@@ -428,6 +437,22 @@ class BasicHistogram:
     def __init__(self, data):
         """Inits with dataframe of key levels vs runs."""
         self.data = data
+
+    def get_xaxis(self):
+        """Constructs xaxis."""
+        min_x = min(list(self.data.index))
+        max_x = max(list(self.data.index))
+        range_ = (min_x, max_x)
+        print(range_)
+        tickvals = list(range(0, max_x + 1, 5))
+        tickvals[0] = 2
+        xaxis = dict(
+            title="<b>KEY LEVEL</b>",
+            range=range_,
+            tickvals=tickvals,
+            ticktext=["+" + str(tv) for tv in tickvals],
+        )
+        return xaxis
 
     def make_figure(self):
         """Draws plotly histogram."""
@@ -449,6 +474,12 @@ class BasicHistogram:
                 hovertemplate="KEY LEVEL: +%{x}<br>RUNS: %{text}"
                 + "<extra>TOP %{customdata:.2f}%</extra>",
             )
+        )
+        fig.update_layout(
+            title_text="<b>TOTAL RUNS BY KEY LEVEL (BFA 8.3)</b>",
+            title_x=0.5,
+            yaxis_title="<b>NUMER OF RUNS</b>",
+            xaxis=self.get_xaxis(),
         )
         return fig
 
@@ -490,6 +521,7 @@ class BubblePlot:
             width=900,
             height=600,
             showlegend=False,
+            title=dict(text="<b>TOTAL RUNS RECORDED BY EACH SPEC (BFA 8.3)</b>", x=0.5),
         )
         fig.add_trace(self._add_reference_bubbles())
         for anno in self._add_reference_annotations():
@@ -661,6 +693,20 @@ class StackedChart:
             )
         return xaxis
 
+    def get_fig_title(self) -> str:
+        """Creates figure title text."""
+        fig_title = ""
+        if self.xaxis_type == "key":
+            fig_title = (
+                "<b>SHARE OF %s SPECS AT EACH KEY LEVEL (BFA 8.3)</b>" % self.spec_role
+            )
+        elif self.xaxis_type == "week":
+            fig_title = (
+                "<b>SHARE OF %s SPECS IN WEEKLY TOP 500 DUNGEONS (BFA 8.3)</b>"
+                % self.spec_role
+            )
+        return fig_title.upper()
+
     def get_padding_for_bar(self):
         """Sets axis limit padding for bar plots."""
         padding = 0
@@ -673,7 +719,7 @@ class StackedChart:
         """Sets yaxis properties of a %normalized share-of-total figure."""
         ytickvals = [0, 20, 40, 60, 80, 100]
         yaxis = dict(
-            title="<b>SHARE OF TOTAL (%)</b>",
+            title="<b>SPEC SHARE (%)</b>",
             range=[0, 101],
             tickvals=ytickvals,
             ticktext=[str(val) + "%" for val in ytickvals],
@@ -690,6 +736,13 @@ class StackedChart:
                 width=900,
                 height=500,
                 barmode="stack",  # plotly ignores barmode unless traces are bar
+                title=dict(
+                    text=self.get_fig_title(),
+                    font_size=15,
+                    x=0.5,
+                    xanchor="center",
+                    yanchor="top",
+                ),
             ),
         )
         return fig
