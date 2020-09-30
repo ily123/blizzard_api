@@ -274,6 +274,20 @@ fig_hist = generate_run_histogram()
 fig2 = generate_stack_figure(data, "key", "mdps", "bar")
 fig3 = generate_stack_figure(week_data, "week", "mdps", "bar")
 
+# removes non-essential buttons from the figure mode bar
+fig_config = dict(
+    modeBarButtonsToRemove=[
+        "zoomIn2d",
+        "zoomOut2d",
+        "hoverClosestCartesian",
+        "hoverCompareCartesian",
+        "toggleSpikelines",
+        "autoScale2d",
+        "lasso2d",
+        "select2d",
+    ],
+    displaylogo=False,
+)
 app = dash.Dash(__name__)
 application = app.server
 app.title = "Benched: M+ Analytics"
@@ -281,7 +295,7 @@ app.layout = html.Div(
     html.Div(
         id="wrapper",
         children=[
-            html.H1(children="Mythic+ at a glance"),
+            html.H1(children="Benched :: Mythic+ at a glance"),
             figure_list,
             html.Div(
                 className="figure-header",
@@ -296,7 +310,7 @@ app.layout = html.Div(
                                 className="figure",
                                 id="example-graph",
                                 figure=fig,
-                                config=dict(staticPlot=True),
+                                config=fig_config,
                                 # add margin here to compensate for title squish
                                 style={"margin-top": "20px"},
                             )
@@ -309,6 +323,7 @@ app.layout = html.Div(
                                 className="figure",
                                 id="fig1-bubble-chart",
                                 figure=fig_bubble,
+                                config=fig_config,
                             )
                         ],
                     ),
@@ -316,7 +331,10 @@ app.layout = html.Div(
                         label="RUNS BY KEY LEVEL",
                         children=[
                             dcc.Graph(
-                                className="figure", id="fig1-key-hist", figure=fig_hist
+                                className="figure",
+                                id="fig1-key-hist",
+                                figure=fig_hist,
+                                config=fig_config,
                             )
                         ],
                     ),
@@ -339,7 +357,7 @@ app.layout = html.Div(
                 value="tank",
                 clearable=False,
             ),
-            dcc.Graph(id="keylevel-stacked-fig", figure=fig2),
+            dcc.Graph(id="keylevel-stacked-fig", figure=fig2, config=fig_config),
             html.Hr(),
             html.Div(
                 className="figure-header",
@@ -358,7 +376,7 @@ app.layout = html.Div(
                 value="tank",
                 clearable=False,
             ),
-            dcc.Graph(id="week-stacked-fig", figure=fig3),
+            dcc.Graph(id="week-stacked-fig", figure=fig3, config=fig_config),
             html.Hr(),
             html.Div(id="faq", children=errata_and_faq),
         ],
