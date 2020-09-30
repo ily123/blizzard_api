@@ -10,7 +10,7 @@ import figure
 
 def load_data():
     """Loads spec data and pivots it."""
-    df = pd.read_pickle("keynums_groupby_level_spec2.pkl")
+    df = pd.read_pickle("data/keynums_groupby_level_spec2.pkl")
     table = pd.pivot_table(
         df, values="num_keys", index=["spec"], columns=["key_level"], fill_value=0
     )
@@ -18,7 +18,7 @@ def load_data():
 
 
 def load_week_data():
-    df = pd.read_pickle("top500_keynums_groupby_period_dungeon_spec2.pkl")
+    df = pd.read_pickle("data/top500_keynums_groupby_period_dungeon_spec2.pkl")
     df = df[["period", "spec", "num_keys"]].groupby(by=["period", "spec"]).sum()
     df = df.reset_index()
     week_table = pd.pivot_table(
@@ -45,7 +45,7 @@ def generate_stack_figure(data, chart_type, role, stack_type):
 
 def generate_run_histogram():
     """Constructs keylevel vs run count histogram."""
-    df = pd.read_pickle("keynums_groupby_level_spec.pkl")
+    df = pd.read_pickle("data/keynums_groupby_level_spec2.pkl")
     data = df[["key_level", "num_keys"]].groupby(by="key_level").sum()
     data = round(data / 5)  # there are 5 records per run
     data = data.astype(int)
