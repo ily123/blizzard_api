@@ -450,7 +450,6 @@ class BasicHistogram:
         min_x = min(list(self.data.index))
         max_x = max(list(self.data.index))
         range_ = (min_x, max_x)
-        print(range_)
         tickvals = list(range(0, max_x + 1, 5))
         tickvals[0] = 2
         xaxis = dict(
@@ -464,7 +463,7 @@ class BasicHistogram:
     def make_figure(self):
         """Draws plotly histogram."""
         key_level = list(self.data.index)
-        runs = list(self.data["num_keys"])
+        runs = list(self.data.values)
         total_runs = sum(runs)
         percentile_rank = 100 - 100 * self.data.cumsum() / total_runs
         fig = go.Figure()
