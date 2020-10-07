@@ -70,7 +70,7 @@ def multi_threaded_call(urls):
     url_chunks = divide_chunks(urls, 10)
 
     threads = []
-    with ThreadPoolExecutor(max_workers=8) as executor:
+    with ThreadPoolExecutor(max_workers=10) as executor:
         for chunk in url_chunks:
             threads.append(executor.submit(api_call, chunk))
     responses = []
@@ -90,7 +90,6 @@ def parse_responses(responses):
         # try:
         leaderboard = parser.parse_keyrun_leaderboard_json(resp.json())
         new_runs = leaderboard.get_runs_as_tuple_list()
-        print(len(new_runs))
         runs.extend(leaderboard.get_runs_as_tuple_list())
         rosters.extend(leaderboard.get_rosters_as_tuple_list())
     # except BaseException as e:
@@ -101,6 +100,36 @@ def parse_responses(responses):
     return runs, rosters
 
 
+def pull_existing_run_ids(region, period):
+    """Pulls id column from the run table in the MDB."""
+    run_ids = []
+    conn = mdb.connect()
+    region = {"us": 1, "eu": 3, "kr": 2, "tw": 4}[region]
+    try:
+        cursor = conn.cursor()
+        cursor.execute("use keyruns")
+        cursor.execute(
+            "SELECT id FROM new_table WHERE region=%s and period=%s" % (region, period)
+        )
+        run_ids = cursor.fetchall()
+        cursor.close()
+    except BaseException as e:
+        print("Problem fetching ids from MDB: ", str(e))
+    finally:
+        conn.close()
+    # format into list of ints
+    run_ids = [int(item[0]) for item in run_ids]
+    return run_ids
+
+
+def find_uniq(existing_ids, runs):
+    """find novel runs"""
+    incoming_ids = [run[0] for run in runs]
+    new_ids = list(set(incoming_ids) - set(existing_ids))
+    new_records = [r for r in runs if r[0] in new_ids]
+    return new_records
+
+
 def main_method():
     """blah"""
     caller = blizzard_api.Caller()
@@ -109,10 +138,25 @@ def main_method():
     regions = ["us", "eu", "tw", "kr"]
     for region in regions:
         period = caller.get_current_period(region)
-        print(period)
+        print("period %s, region %s" % (period, region))
+        t0 = time.time()
+        existing_run_ids = pull_existing_run_ids(region, period)  # what's in the DB
+        print("getting DB data: ", time.time() - t0)
         for dungeon in dungeons:
+            t0 = time.time()
             responses = get_data(region=region, period=period, dungeon=dungeon)
             runs, rosters = parse_responses(responses)
-            mdb.insert(table="new_table", data=runs)
-            mdb.insert(table="roster", data=rosters)
-            xxx
+            print("API calls: ", time.time() - t0)
+            print("Total runs: ", len(runs))
+            t0 = time.time()
+            novel_runs = find_uniq(existing_run_ids, runs)
+            novel_rosters = find_uniq(existing_run_ids, rosters)
+            print("Find new runs: ", time.time() - t0)
+            print("New runs: ", len(novel_runs))
+            t0 = time.time()
+            if len(novel_runs) > 0:
+                mdb.insert(table="new_table", data=novel_runs)
+                mdb.insert(table="roster", data=novel_rosters)
+            print("Inserting new runs: ", time.time() - t0)
+            print("-next-" * 5)
+        print("=" * 30)

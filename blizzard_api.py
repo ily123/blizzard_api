@@ -271,7 +271,7 @@ class KeyRunLeaderboard:
         This list is meant to be fed to an SQL connector for a batch insert.
         """
         runs = []
-        if not self.keyruns == []:
+        if self.keyruns == []:
             return runs
         for run in self.keyruns:
             tpl = (
