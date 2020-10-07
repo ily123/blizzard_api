@@ -6,11 +6,10 @@ import pandas as pd
 class MplusDatabase(object):
     """Class for working with M+ MySQL database."""
 
-    __utility_tables = ["realm", "region", "dungeon", "spec"]
-    __main_tables = ["period"]
+    __utility_tables = ["realm", "region", "dungeon", "spec", "period"]
     __table_fields = {  # these are used to formulate batch inserts queries
         "period": ["region", "id", "start_timestamp", "end_timestamp"],
-        "run": [
+        "new_table": [
             "id",
             "dungeon",
             "level",
@@ -19,6 +18,9 @@ class MplusDatabase(object):
             "duration",
             "faction",
             "region",
+            "score",
+            "istimed",
+            "composition",
         ],
         "roster": ["run_id", "character_id", "name", "spec", "realm"],
         "run_composition": [
@@ -118,7 +120,7 @@ class MplusDatabase(object):
         cursor = connection.cursor()
         try:
             query = (
-                "INSERT IGNORE into {table} " "({table_fields}) " "VALUES ({blanks})"
+                "INSERT IGNORE into {table} ({table_fields}) VALUES ({blanks})"
             ).format(
                 table=table,
                 table_fields=",".join(fields),
@@ -164,6 +166,7 @@ class MplusDatabase(object):
               'dungeon' : mapping of dungeon names and ids
               'region' : mapping of region tokens to ids
               'spec' : mapping of class-spec ids and names
+              'period' : period id to region and timestamp
 
         Returns
         -------

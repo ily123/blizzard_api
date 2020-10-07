@@ -4,6 +4,7 @@
 .db_config
 logs/
 dashboard_class_representation/zip_these/*
+data/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

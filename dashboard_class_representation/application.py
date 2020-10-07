@@ -1,3 +1,5 @@
+import sqlite3
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -8,27 +10,37 @@ from dash.dependencies import Input, Output
 import figure
 
 
-def load_data():
-    """Loads spec data and pivots it."""
-    df = pd.read_pickle("data/keynums_groupby_level_spec2.pkl")
-    table = pd.pivot_table(
-        df, values="num_keys", index=["spec"], columns=["key_level"], fill_value=0
+def get_data_from_sqlite(db_file_path):
+    """Get agg tables from the SQLite file."""
+    conn = sqlite3.connect(db_file_path)
+    main_summary = pd.read_sql_query("SELECT * FROM main_summary", conn)
+    week_summary = pd.read_sql_query("SELECT * FROM weekly_summary", conn)
+    conn.close()
+
+    # pivot tables for the figure api
+    main_summary = pd.pivot_table(
+        main_summary,
+        values="run_count",
+        index=["spec"],
+        columns=["level"],
+        fill_value=0,
     )
-    return table
 
-
-def load_week_data():
-    df = pd.read_pickle("data/top500_keynums_groupby_period_dungeon_spec2.pkl")
-    df = df[["period", "spec", "num_keys"]].groupby(by=["period", "spec"]).sum()
-    df = df.reset_index()
-    week_table = pd.pivot_table(
-        df, values="num_keys", index="spec", columns="period", fill_value=0
+    # oops, forgot to sum by dungeon before piping to SQLite, do it now:
+    week_summary = (
+        week_summary[["period", "spec", "run_count"]]
+        .groupby(by=["period", "spec"])
+        .sum()
     )
-    return week_table
+    week_summary = week_summary.reset_index()
+    week_summary = pd.pivot_table(
+        week_summary, values="run_count", index="spec", columns="period", fill_value=0
+    )
+    return main_summary, week_summary
 
 
-def generate_figure(data):
-    """Constructs the spec figure."""
+def generate_ridgeplot(data):
+    """Constructs the spec vs level ridge plot."""
     ridgeplot = figure.RidgePlot(data)
     return ridgeplot.figure
 
@@ -43,14 +55,13 @@ def generate_stack_figure(data, chart_type, role, stack_type):
     return stac_fig
 
 
-def generate_run_histogram():
+def generate_run_histogram(data):
     """Constructs keylevel vs run count histogram."""
-    df = pd.read_pickle("data/keynums_groupby_level_spec2.pkl")
-    data = df[["key_level", "num_keys"]].groupby(by="key_level").sum()
+    data = data.sum(axis=0)
     data = round(data / 5)  # there are 5 records per run
     data = data.astype(int)
-    histchart = figure.BasicHistogram(data)
-    histfig = histchart.make_figure()
+    hist = figure.BasicHistogram(data)
+    histfig = hist.make_figure()
     return histfig
 
 
@@ -60,6 +71,15 @@ def make_bubble_plot(data):
     bubble_fig = bubble.make_figure2()
     return bubble_fig
 
+
+# generate the figures
+db_file_path = "../data/summary.sqlite"
+main_summary, week_summary = get_data_from_sqlite(db_file_path)
+ridgeplot_fig = generate_ridgeplot(main_summary)
+bubble_fig = make_bubble_plot(main_summary)
+histogram_fig = generate_run_histogram(main_summary)
+stacked_levels_fig = generate_stack_figure(main_summary, "key", "mdps", "bar")
+stacked_week_fig = generate_stack_figure(week_summary, "week", "mdps", "bar")
 
 figure_list = html.Ul(
     children=[
@@ -266,14 +286,6 @@ errata_and_faq = dcc.Markdown(  # &nbsp; is a hacky way to add a blank line to M
 )
 
 
-data = load_data()
-week_data = load_week_data()
-fig = generate_figure(data)
-fig_bubble = make_bubble_plot(data)
-fig_hist = generate_run_histogram()
-fig2 = generate_stack_figure(data, "key", "mdps", "bar")
-fig3 = generate_stack_figure(week_data, "week", "mdps", "bar")
-
 # removes non-essential buttons from the figure mode bar
 fig_config = dict(
     modeBarButtonsToRemove=[
@@ -309,7 +321,7 @@ app.layout = html.Div(
                             dcc.Graph(
                                 className="figure",
                                 id="example-graph",
-                                figure=fig,
+                                figure=ridgeplot_fig,
                                 config=fig_config,
                                 # add margin here to compensate for title squish
                                 style={"margin-top": "20px"},
@@ -322,7 +334,7 @@ app.layout = html.Div(
                             dcc.Graph(
                                 className="figure",
                                 id="fig1-bubble-chart",
-                                figure=fig_bubble,
+                                figure=bubble_fig,
                                 config=fig_config,
                             )
                         ],
@@ -333,7 +345,7 @@ app.layout = html.Div(
                             dcc.Graph(
                                 className="figure",
                                 id="fig1-key-hist",
-                                figure=fig_hist,
+                                figure=histogram_fig,
                                 config=fig_config,
                             )
                         ],
@@ -357,7 +369,9 @@ app.layout = html.Div(
                 value="tank",
                 clearable=False,
             ),
-            dcc.Graph(id="keylevel-stacked-fig", figure=fig2, config=fig_config),
+            dcc.Graph(
+                id="keylevel-stacked-fig", figure=stacked_levels_fig, config=fig_config
+            ),
             html.Hr(),
             html.Div(
                 className="figure-header",
@@ -376,25 +390,14 @@ app.layout = html.Div(
                 value="tank",
                 clearable=False,
             ),
-            dcc.Graph(id="week-stacked-fig", figure=fig3, config=fig_config),
+            dcc.Graph(
+                id="week-stacked-fig", figure=stacked_week_fig, config=fig_config
+            ),
             html.Hr(),
             html.Div(id="faq", children=errata_and_faq),
         ],
     )
 )
-
-
-@app.callback(
-    Output(component_id="example-graph", component_property="figure"),
-    [Input(component_id="figure1-dropdown", component_property="value")],
-)
-def update_figure1(input_value):
-    """Switch between sorted by key and sorted by population view."""
-    if input_value == "key":
-        return fig
-    elif input_value == "population":
-        return fig2
-    return fig
 
 
 @app.callback(
@@ -410,7 +413,7 @@ def update_figure2(role, isbar):
     print(isbar)
     print("=" * 80)
     stack_figure = generate_stack_figure(
-        data=data, chart_type="key", role=role, stack_type=isbar
+        data=main_summary, chart_type="key", role=role, stack_type=isbar
     )
     return stack_figure
 
@@ -425,7 +428,7 @@ def update_figure2(role, isbar):
 def update_figure3(role, isbar):
     """Switch between sorted by key and sorted by population view."""
     stack_figure = generate_stack_figure(
-        data=week_data, chart_type="week", role=role, stack_type=isbar
+        data=week_summary, chart_type="week", role=role, stack_type=isbar
     )
     return stack_figure
 
