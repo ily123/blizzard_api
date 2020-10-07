@@ -13,7 +13,7 @@ import utils
 from utils import Utils
 
 importlib.reload(utils)
-
+importlib.reload(blizzard_credentials)
 SPEC_UTILS = utils.Specs()
 SCORER = utils.Scorer()
 
