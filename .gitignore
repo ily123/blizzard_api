@@ -3,7 +3,7 @@
 *.swp
 .db_config
 logs/
-
+dashboard_class_representation/zip_these/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
