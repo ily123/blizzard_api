@@ -438,10 +438,22 @@ def update_figure3(role, isbar):
 app.index_string = """<!DOCTYPE html>
     <html>
     <head>
-      <!-- Global site tag (gtag.js) - Google Analytics -->
+      <!-- Plausible.io tracking script -->
       <script async defer data-domain="benched.me" src="https://plausible.io/js/plausible.js"></script>
-      <!-- End Global Google Analytics -->
+      <!-- End Plausible.io tracking script -->
+    {%metas%}
+    <title>{%title%}</title>
+    {%favicon%}
+    {%css%}
     </head>
+    <body>
+    {%app_entry%}
+    <footer>
+    {%config%}
+    {%scripts%}
+    {%renderer%}
+    </footer>
+    </body>
     </html>
     """
 
