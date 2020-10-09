@@ -433,5 +433,17 @@ def update_figure3(role, isbar):
     return stack_figure
 
 
+# this is a very hacky way to add tracking, see this instead:
+# https://community.plotly.com/t/how-to-add-javascript-code-from-adsense-into-dash-app/5370/6
+app.index_string = """<!DOCTYPE html>
+    <html>
+    <head>
+      <!-- Global site tag (gtag.js) - Google Analytics -->
+      <script async defer data-domain="benched.me" src="https://plausible.io/js/plausible.js"></script>
+      <!-- End Global Google Analytics -->
+    </head>
+    </html>
+    """
+
 if __name__ == "__main__":
     application.run(debug=True, port=8080)
