@@ -73,7 +73,7 @@ def make_bubble_plot(data):
 
 
 # generate the figures
-db_file_path = "../data/summary.sqlite"
+db_file_path = "data/summary.sqlite"
 main_summary, week_summary = get_data_from_sqlite(db_file_path)
 ridgeplot_fig = generate_ridgeplot(main_summary)
 bubble_fig = make_bubble_plot(main_summary)
