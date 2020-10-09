@@ -1,6 +1,6 @@
 """Python methods for running ETL tasks."""
-
 import importlib
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Tuple
@@ -134,8 +134,9 @@ def main_method():
     """blah"""
     caller = blizzard_api.Caller()
     dungeons = caller.get_dungeons()
-    period = caller.get_current_period("us")
     regions = ["us", "eu", "tw", "kr"]
+    # regions = ["kr"]
+    # dungeons = [244]
     for region in regions:
         period = caller.get_current_period(region)
         print("period %s, region %s" % (period, region))
