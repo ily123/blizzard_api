@@ -160,14 +160,14 @@ figure_header_elements = {
             The first panel tells you how many runs each spec recorded
             at each key level.
             This tells you two things: how popular each spec is (the
-            total size of the colored area corresponds to the total number of runs each
+            size of the colored area corresponds to the total number of runs each
             spec recorded this season),
             and which specs are most successful at high-end pushing
             (those are the specs with the longest tails in the 20+ range).
 
             The second panel gives you a
             clearer look at the total number of runs by each spec, while the third
-            panels is a spec-agnostic look at runs broken down key level.
+            panel is a spec-agnostic look at runs broken down by key level.
             """,
         insight="""
             * Most specs are within 2-3 key levels of the cutting edge performers.
@@ -179,7 +179,7 @@ figure_header_elements = {
             any level of keystone. One exception are the Holy priests. They don't
             perform well at high-end keys, but are popular with the general population.
             I assume H priests are popular with the more casual players who just want
-            a no-hassle heoric raid healer.
+            a no-hassle heroic raid healer.
             * The takeaway for ordinary players is that you should stay
             away from the very bottom specs, but feel free to play anything else.
             """,
