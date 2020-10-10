@@ -1,3 +1,5 @@
+import datetime
+import os
 import sqlite3
 
 import dash
@@ -81,6 +83,10 @@ histogram_fig = generate_run_histogram(main_summary)
 stacked_levels_fig = generate_stack_figure(main_summary, "key", "mdps", "bar")
 stacked_week_fig = generate_stack_figure(week_summary, "week", "mdps", "bar")
 
+DATA_LAST_UPDATED = datetime.datetime.fromtimestamp(
+    int(os.path.getmtime(db_file_path))
+).strftime("%Y-%m-%d %H:%M:%S")
+
 figure_list = html.Ul(
     children=[
         html.Li(html.A("Overview of all keys completed this season", href="#figure1")),
@@ -146,9 +152,22 @@ figure_header_elements = {
         anchor_id="figure1",
         header_title="Overview of all keys completed this season",
         summary="""
-            We count all keys completed this season. Then, we break that number down
+            To get a high-level view of the entire M+ activity,
+            we count all keys completed this season. Then, we break that number down
             by spec & key level (first panel), by spec alone (second panel),
             or just by key level (third panel).
+
+            The first panel tells you how many runs each spec recorded
+            at each key level.
+            This tells you two things: how popular each spec is (the
+            total size of the colored area corresponds to the total number of runs each
+            spec recorded this season),
+            and which specs are most successful at high-end pushing
+            (those are the specs with the longest tails in the 20+ range).
+
+            The second panel gives you a
+            clearer look at the total number of runs by each spec, while the third
+            panels is a spec-agnostic look at runs broken down key level.
             """,
         insight="""
             * Most specs are within 2-3 key levels of the cutting edge performers.
@@ -156,10 +175,11 @@ figure_header_elements = {
             * Most specs that are popular with the general population
             are also the cutting-edge meta specs. It's likely that
             top-end meta propagates itself down to +15 level.
-            * The bottom 4 to 6 specs are really in bad shape. No one plays them at
-            any level of keystone. One exception are the Holy priests. They don't do
-            well in high-end M+ but are played by the general population. They are a
-            popular newbie healer spec for non-CE pushers.
+            * The bottom 4 to 6 specs are not played at
+            any level of keystone. One exception are the Holy priests. They don't
+            perform well at high-end keys, but are popular with the general population.
+            I assume H priests are popular with the more casual players who just want
+            a no-hassle heoric raid healer.
             * The takeaway for ordinary players is that you should stay
             away from the very bottom specs, but feel free to play anything else.
             """,
@@ -183,7 +203,7 @@ figure_header_elements = {
         header_title="Detailed Look at Spec Performance",
         summary="""
             The number of runs in the high-end bracket is so low,
-            that it's hard to see difference between raw run counts in figure 1
+            that in figure 1 it's hard to see the difference between counts
             once you get past +20. To solve this problem, we normalize counts
             within each key bracket, and show spec popularity in terms of percent.
 
@@ -203,7 +223,7 @@ figure_header_elements = {
         anchor_id="figure3",
         header_title="WEEKLY TOP 500",
         summary="""
-            To see how the meta changes through the season, we sample the top 500 keys
+            To see how the meta changes through the season, we sample the top 500 runs
             for each dungeon (that's 6000 total keys) for each week. We then count the
             number of times each spec appears in this weekly top 500 sample.
 
@@ -225,15 +245,16 @@ figure_header_elements = {
         factoid="""
             If you notice, the data has a zig-zag quality to it.
             Spec numbers, especially the top spec, go up and down each week.
-            That's the effect of the Tyranical/Fort split.
+            That's the effect of the Tyrannical/Fort split.
             On Tyrannical weeks, top pushers are likely to bench their meta-class mains
             and play non-meta alts (or not play at all).
-            As a result on Tyrannical weeks, the share of the meta specs drops.
+            As a result on Tyrannical weeks, the share of the meta specs in the top 500
+            drops.
             Likewise, the share of meta specs rises to its max during push weeks
             (week 27 and 29 were the back to back push fort weeks, for example).
 
             Additionally, as we get closer to the end of the patch, many pushers
-            stop playing, so we see non-meta specs gain some share past week 30.
+            stop playing, so we see non-meta specs gain share past week 30.
             """,
     ),
 }
@@ -258,7 +279,7 @@ errata_and_faq = dcc.Markdown(  # &nbsp; is a hacky way to add a blank line to M
 
     **How frequently are the data updated?**
 
-    Every 7 days on Tuesday. Daily updates coming soon (tm).
+    The data are updated daily around 2am US CST.
 
     &nbsp;
 
@@ -267,8 +288,9 @@ errata_and_faq = dcc.Markdown(  # &nbsp; is a hacky way to add a blank line to M
     Raider.io is great.
     For my part, I wanted a bit more insight into the data, so I made this dashboard.
 
-    Other good M+ stats websites are [mplus.subcreation.net](mplus.subcreation.net)
-    and [bestkeystone.com](bestkeystone.com).
+    Other good M+ stats websites are
+    [mplus.subcreation.net](https://mplus.subcreation.net)
+    and [bestkeystone.com](https://bestkeystone.com).
 
     &nbsp;
 
@@ -280,8 +302,14 @@ errata_and_faq = dcc.Markdown(  # &nbsp; is a hacky way to add a blank line to M
 
     **I saw a mistake, have a comment, have an idea**
 
-     My discord handle is []. Drop me a note whenever :)
+     My reddit handle is
+     [u/OtherwiseUniversity7](https://www.reddit.com/user/OtherwiseUniversity7).
+     Drop me a note whenever :)
 
+    &nbsp;
+
+    -----
+    This website does not use cookies or sell your data to Google.
     """
 )
 
@@ -302,13 +330,17 @@ fig_config = dict(
 )
 app = dash.Dash(__name__)
 application = app.server
-app.title = "Benched: M+ Analytics"
+app.title = "Benched: Mythic+ at a glance"
 app.layout = html.Div(
     html.Div(
         id="wrapper",
         children=[
             html.H1(children="Benched :: Mythic+ at a glance"),
             figure_list,
+            html.P(
+                "Data updated: %s UTC" % DATA_LAST_UPDATED,
+                style={"text-align": "right"},
+            ),
             html.Div(
                 className="figure-header",
                 children=construct_figure_header(figure_header_elements["figure1"]),
@@ -409,9 +441,6 @@ app.layout = html.Div(
 )
 def update_figure2(role, isbar):
     """Switch between sorted by key and sorted by population view."""
-    print(role)
-    print(isbar)
-    print("=" * 80)
     stack_figure = generate_stack_figure(
         data=main_summary, chart_type="key", role=role, stack_type=isbar
     )

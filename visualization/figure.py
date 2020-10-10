@@ -432,7 +432,7 @@ class RidgePlot:
             yanchor="top",
             y=0.99,
             x=0.5,
-            text="<b>SPECS SORTED BY BEST KEY COMPLETED AND TOTAL RUNS (BFA 8.3)</b>",
+            text="<b>SPECS ORDERED BY BEST KEY COMPLETED & TOTAL RUNS (BFA 8.3)</b>",
         )
         fig.update_layout(title=title)
         return fig
@@ -465,7 +465,11 @@ class BasicHistogram:
         key_level = list(self.data.index)
         runs = list(self.data.values)
         total_runs = sum(runs)
-        percentile_rank = 100 - 100 * self.data.cumsum() / total_runs
+        percentile_rank = 100 * self.data.cumsum() / total_runs
+        custom_text = [
+            "KEY LEVEL: +{x}<br>RUNS: {y:,}".format(x=item[0], y=item[1])
+            for item in zip(key_level, runs)
+        ]
         fig = go.Figure()
         fig.add_trace(
             go.Scatter(
@@ -475,10 +479,9 @@ class BasicHistogram:
                 line=dict(width=1, color="black", shape="spline"),
                 fillcolor="rgba(1,1,1,0.5)",
                 fill="tozeroy",
-                text=[f"{y:,}" for y in runs],
+                text=custom_text,
                 customdata=percentile_rank,
-                hovertemplate="KEY LEVEL: +%{x}<br>RUNS: %{text}"
-                + "<extra>TOP %{customdata:.2f}%</extra>",
+                hovertemplate="%{text}" + "<extra>%{customdata:.2f} percentile</extra>",
             )
         )
         fig.update_layout(
@@ -708,7 +711,7 @@ class StackedChart:
             )
         elif self.xaxis_type == "week":
             fig_title = (
-                "<b>SHARE OF %s SPECS IN WEEKLY TOP 500 DUNGEONS (BFA 8.3)</b>"
+                "<b>SHARE OF %s SPECS IN WEEKLY TOP 6000 RUNS (BFA 8.3)</b>"
                 % self.spec_role
             )
         return fig_title.upper()
