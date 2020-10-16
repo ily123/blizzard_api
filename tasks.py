@@ -3,6 +3,7 @@ import importlib
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from json import JSONDecodeError
 from typing import Tuple
 
 import requests
@@ -87,13 +88,14 @@ def parse_responses(responses):
     rosters = []
 
     for resp in responses:
-        # try:
-        leaderboard = parser.parse_keyrun_leaderboard_json(resp.json())
-        new_runs = leaderboard.get_runs_as_tuple_list()
-        runs.extend(leaderboard.get_runs_as_tuple_list())
-        rosters.extend(leaderboard.get_rosters_as_tuple_list())
-    # except BaseException as e:
-    #    print("hey, there was a mistake parsing LB resps: ", e)
+        try:
+            leaderboard = parser.parse_keyrun_leaderboard_json(resp.json())
+            runs.extend(leaderboard.get_runs_as_tuple_list())
+            rosters.extend(leaderboard.get_rosters_as_tuple_list())
+        except JSONDecodeError as e:
+            print("Leaderboard parse error: there was a JSONDecodeError ", e)
+        except KeyError as e:
+            print("Leaderboard parse error: KeyError", e)
     # the same run appears in multiple leaderboards, so uniq the data
     runs = list(set(runs))
     rosters = list(set(rosters))
@@ -135,7 +137,7 @@ def main_method():
     caller = blizzard_api.Caller()
     dungeons = caller.get_dungeons()
     regions = ["us", "eu", "tw", "kr"]
-    # regions = ["kr"]
+    # regions = ["eu"]
     # dungeons = [244]
     for region in regions:
         period = caller.get_current_period(region)

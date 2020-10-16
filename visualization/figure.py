@@ -24,7 +24,7 @@ import blizzcolors
 class RidgePlot:
     """Draws the ridge plot."""
 
-    def __init__(self, data):
+    def __init__(self, data, patch):
         """Inits with the formatted pandas dataframe.
 
         Params
@@ -32,6 +32,7 @@ class RidgePlot:
         data : DataFrame
             spec should be the row, and level of key the columns
         """
+        self.patch = patch
         self.data = data  # the table should already be pivoted
         self.summary = self._get_summary_table(data)
         sorted_summary = self._sort_summary(sort_by="best_key")
@@ -244,7 +245,7 @@ class RidgePlot:
     def _make_best_key_pointer_anno(self):
         """Makes BEST KEY label + arrow that points to the best key."""
         annotation = dict(
-            x=29,
+            x=self.summary.best_key.max() - 2,
             y=self._calculate_vertical_offset() * (36 + 1.5),
             align="center",
             showarrow=True,
@@ -401,18 +402,18 @@ class RidgePlot:
         fig.update_layout(width=900, height=1500, showlegend=False)
         fig.update_layout(updatemenus=self.buttons)
         fig.update_layout(annotations=self._keep_annotations("all"))
-
+        max_x = self.summary.best_key.max()
         xaxis = dict(
             title="<b>KEY LEVEL</b>",
-            range=[-6, 30],
-            tickvals=[0] + list(range(3, 30, 5)),
-            ticktext=["+2"] + ["+" + str(i + 2) for i in range(3, 30, 5)],
+            range=[-6, max_x - 1],
+            tickvals=[0] + list(range(3, max_x - 1, 5)),
+            ticktext=["+2"] + ["+" + str(i + 2) for i in range(3, max_x - 1, 5)],
         )
 
         xaxis2 = dict(
-            range=[-6, 30],
-            tickvals=[0] + list(range(3, 30, 5)),
-            ticktext=["+2"] + ["+" + str(i + 2) for i in range(3, 30, 5)],
+            range=[-6, max_x - 1],
+            tickvals=[0] + list(range(3, max_x - 1, 5)),
+            ticktext=["+2"] + ["+" + str(i + 2) for i in range(3, max_x - 1, 5)],
             side="top",
             overlaying="x",
         )
@@ -422,7 +423,7 @@ class RidgePlot:
         yaxis = go.layout.YAxis(range=[0, ymax], tickvals=[])
         fig.update_layout(yaxis=yaxis)
         fig.update_layout(xaxis=xaxis, xaxis2=xaxis2)
-        # this is a stupid hack... The second axis won't show up unless
+        # this is a stupid hack... The upper x-axis won't show up unless
         # there is a trace associated with it. So associate this dummy trace
         # with the secondary axis. The trace is invisible.
         fig.add_trace(go.Scatter(x=[1], y=[1], xaxis="x2", visible=False))
@@ -432,7 +433,7 @@ class RidgePlot:
             yanchor="top",
             y=0.99,
             x=0.5,
-            text="<b>SPECS ORDERED BY BEST KEY COMPLETED & TOTAL RUNS (BFA 8.3)</b>",
+            text="<b>TOTAL RUNS BY SPEC AND KEY LEVEL (%s)</b>" % self.patch,
         )
         fig.update_layout(title=title)
         return fig
@@ -441,9 +442,10 @@ class RidgePlot:
 class BasicHistogram:
     """Draws a histogram of key levels vs runs."""
 
-    def __init__(self, data):
+    def __init__(self, data, patch):
         """Inits with dataframe of key levels vs runs."""
         self.data = data
+        self.patch = patch
 
     def get_xaxis(self):
         """Constructs xaxis."""
@@ -485,7 +487,7 @@ class BasicHistogram:
             )
         )
         fig.update_layout(
-            title_text="<b>TOTAL RUNS BY KEY LEVEL (BFA 8.3)</b>",
+            title_text="<b>TOTAL RUNS BY KEY LEVEL (%s)</b>" % self.patch,
             title_x=0.5,
             yaxis_title="<b>NUMER OF RUNS</b>",
             xaxis=self.get_xaxis(),
@@ -496,9 +498,21 @@ class BasicHistogram:
 class BubblePlot:
     """Circle plot for total runs."""
 
-    def __init__(self, data):
+    REFERENCE_SIZES = [10 ** n for n in range(1, 8)]
+    REFERENCE_LABELS = dict(
+        zip(
+            REFERENCE_SIZES,
+            [
+                text + " runs"
+                for text in ["10", "100", "1k", "10k", "100k", "1M", "10M"]
+            ],
+        )
+    )
+
+    def __init__(self, data, patch):
         """Inits with spec run data."""
         self.data = data.sum(axis=1).sort_values(ascending=False)
+        self.patch = patch
         self.specs = blizzcolors.Specs()
 
     def make_figure2(self):
@@ -530,7 +544,9 @@ class BubblePlot:
             width=900,
             height=600,
             showlegend=False,
-            title=dict(text="<b>TOTAL RUNS RECORDED BY EACH SPEC (BFA 8.3)</b>", x=0.5),
+            title=dict(
+                text="<b>TOTAL RUNS RECORDED BY EACH SPEC (%s)</b>" % self.patch, x=0.5
+            ),
         )
         fig.add_trace(self._add_reference_bubbles())
         for anno in self._add_reference_annotations():
@@ -575,10 +591,27 @@ class BubblePlot:
             y -= 1
         return marker_x, marker_y, marker_size, marker_color, marker_text
 
+    def calibrate_reference_marker_size(self):
+        """Pick 3 reference bubbles most similar to the actual data."""
+        largest_data_bubble = self.data.iloc[0]
+        if largest_data_bubble < 100:
+            return [1, 10, 100]
+        smallest_diff = 10e10
+        desired_ref = 0
+        for index, ref in enumerate(self.REFERENCE_SIZES):
+            diff = abs(largest_data_bubble - ref)
+            if smallest_diff > diff:
+                smallest_diff = diff
+                desired_ref = index
+        return self.REFERENCE_SIZES[desired_ref - 2 : desired_ref + 1]
+
     def _add_reference_bubbles(self):
         """Adds 1x, 10x, 100x reference legend."""
-        marker_size = [10 ** 5, 10 ** 6, 10 ** 7]
-        marker_size = [1500 * ms / self.data.iloc[0] for ms in marker_size]
+        marker_size = self.calibrate_reference_marker_size()
+        # convert raw market size into relative size
+        largest_data_bubble = self.data.iloc[0]
+        print(largest_data_bubble)
+        marker_size = [1500 * ms / largest_data_bubble for ms in marker_size]
         data = go.Scatter(
             x=[9, 9, 9],
             y=[4, 3.6, 3],
@@ -598,7 +631,8 @@ class BubblePlot:
         """Adds label text next to reference bubbles."""
         x = [10] * 3
         y = [4, 3.6, 3]
-        text = ["100K RUNS", "1M RUNS", "10M RUNS"]
+        ref_marker_size = self.calibrate_reference_marker_size()
+        text = [self.REFERENCE_LABELS[ms] for ms in ref_marker_size]
         annotations = []
         for i in [0, 1, 2]:
             annotation = dict(
@@ -654,11 +688,12 @@ class StackedChart:
         "bar+week": "%{text}<br>WEEK: %{x}<br> SHARE: %{y:.0f}%<extra></extra>",
     }
 
-    def __init__(self, data, xaxis_type, spec_role):
+    def __init__(self, data, xaxis_type, spec_role, patch):
         self.specs = blizzcolors.Specs()
         self.xaxis_type = xaxis_type
         self.spec_role = spec_role
         self.data = self.normalize_for_role(data, spec_role)
+        self.patch = patch
         self.traces = None
 
     def normalize_for_role(self, data, spec_role):
@@ -706,13 +741,14 @@ class StackedChart:
         """Creates figure title text."""
         fig_title = ""
         if self.xaxis_type == "key":
-            fig_title = (
-                "<b>SHARE OF %s SPECS AT EACH KEY LEVEL (BFA 8.3)</b>" % self.spec_role
+            fig_title = "<b>SHARE OF %s SPECS AT EACH KEY LEVEL (%s)</b>" % (
+                self.spec_role,
+                self.patch,
             )
         elif self.xaxis_type == "week":
-            fig_title = (
-                "<b>SHARE OF %s SPECS IN WEEKLY TOP 6000 RUNS (BFA 8.3)</b>"
-                % self.spec_role
+            fig_title = "<b>SHARE OF %s SPECS IN WEEKLY TOP 6000 RUNS (%s)</b>" % (
+                self.spec_role,
+                self.patch,
             )
         return fig_title.upper()
 
@@ -758,8 +794,8 @@ class StackedChart:
 
 
 class StackedAreaChart(StackedChart):
-    def __init__(self, data, xaxis_type, spec_role):
-        super().__init__(data, xaxis_type, spec_role)
+    def __init__(self, data, xaxis_type, spec_role, patch):
+        super().__init__(data, xaxis_type, spec_role, patch)
         self.traces = self._make_traces()
 
     def _make_traces(self):
@@ -788,8 +824,8 @@ class StackedAreaChart(StackedChart):
 
 
 class StackedBarChart(StackedChart):
-    def __init__(self, data, xaxis_type, spec_role):
-        super().__init__(data, xaxis_type, spec_role)
+    def __init__(self, data, xaxis_type, spec_role, patch):
+        super().__init__(data, xaxis_type, spec_role, patch)
         self.traces = self._make_traces()
 
     def _make_traces(self):

@@ -1,6 +1,7 @@
 import datetime
 import os
 import sqlite3
+import time
 
 import dash
 import dash_core_components as dcc
@@ -12,10 +13,11 @@ from dash.dependencies import Input, Output
 import figure
 
 
-def get_data_from_sqlite(db_file_path):
+def get_data_from_sqlite(db_file_path, season):
     """Get agg tables from the SQLite file."""
     conn = sqlite3.connect(db_file_path)
-    main_summary = pd.read_sql_query("SELECT * FROM main_summary", conn)
+    main_query = "SELECT * FROM main_summary_seasons WHERE season='%s'" % season
+    main_summary = pd.read_sql_query(main_query, conn)
     week_summary = pd.read_sql_query("SELECT * FROM weekly_summary", conn)
     conn.close()
 
@@ -41,47 +43,85 @@ def get_data_from_sqlite(db_file_path):
     return main_summary, week_summary
 
 
-def generate_ridgeplot(data):
+def get_raw_data_from_sqlite(db_file_path):
+    """Get agg tables from the SQLite file."""
+    conn = sqlite3.connect(db_file_path)
+    main_query = "SELECT * FROM main_summary_seasons"
+    main_summary = pd.read_sql_query(main_query, conn)
+    conn.close()
+    return main_summary
+
+
+def format_raw_data_main_summary(main_summary, season):
+    """Extracts season's data and pivots it for figure API."""
+    # pivot tables for the figure api
+    season_mask = main_summary.season == season
+    formatted_season_summary = pd.pivot_table(
+        main_summary[season_mask],
+        values="run_count",
+        index=["spec"],
+        columns=["level"],
+        fill_value=0,
+    )
+    return formatted_season_summary
+
+
+def generate_ridgeplot(data, season_patch):
     """Constructs the spec vs level ridge plot."""
-    ridgeplot = figure.RidgePlot(data)
+    ridgeplot = figure.RidgePlot(data, season_patch)
     return ridgeplot.figure
 
 
-def generate_stack_figure(data, chart_type, role, stack_type):
+def generate_stack_figure(data, chart_type, role, stack_type, patch):
     """Constructs stack area chart."""
     if stack_type == "area":
-        stac = figure.StackedAreaChart(data, chart_type, role)
+        stac = figure.StackedAreaChart(data, chart_type, role, patch)
     elif stack_type == "bar":
-        stac = figure.StackedBarChart(data, chart_type, role)
+        stac = figure.StackedBarChart(data, chart_type, role, patch)
     stac_fig = stac.assemble_figure()
     return stac_fig
 
 
-def generate_run_histogram(data):
+def generate_run_histogram(data, patch):
     """Constructs keylevel vs run count histogram."""
     data = data.sum(axis=0)
     data = round(data / 5)  # there are 5 records per run
     data = data.astype(int)
-    hist = figure.BasicHistogram(data)
+    hist = figure.BasicHistogram(data, patch)
     histfig = hist.make_figure()
     return histfig
 
 
-def make_bubble_plot(data):
+def make_bubble_plot(data, patch):
     """Construct spec run count bubble chart."""
-    bubble = figure.BubblePlot(data)
+    bubble = figure.BubblePlot(data, patch)
     bubble_fig = bubble.make_figure2()
     return bubble_fig
 
 
+# current season
+season = "bfa4_postpatch"
 # generate the figures
 db_file_path = "data/summary.sqlite"
-main_summary, week_summary = get_data_from_sqlite(db_file_path)
-ridgeplot_fig = generate_ridgeplot(main_summary)
-bubble_fig = make_bubble_plot(main_summary)
-histogram_fig = generate_run_histogram(main_summary)
-stacked_levels_fig = generate_stack_figure(main_summary, "key", "mdps", "bar")
-stacked_week_fig = generate_stack_figure(week_summary, "week", "mdps", "bar")
+main_summary, week_summary = get_data_from_sqlite(db_file_path, season)
+
+RAW_AGG_DATA = get_raw_data_from_sqlite(db_file_path)
+CURRENT_SEASON = "bfa4_postpatch"
+spec_runs = format_raw_data_main_summary(RAW_AGG_DATA, season=CURRENT_SEASON)
+
+PATCH_NAMES = {
+    "bfa4": "BFA Season 4 / 8.3",
+    "bfa4_postpatch": "BFA post-patch / 9.0.1",
+}
+ridgeplot_fig = generate_ridgeplot(spec_runs, PATCH_NAMES[CURRENT_SEASON])
+bubble_fig = make_bubble_plot(spec_runs, PATCH_NAMES[CURRENT_SEASON])
+histogram_fig = generate_run_histogram(spec_runs, PATCH_NAMES[CURRENT_SEASON])
+stacked_levels_fig = generate_stack_figure(
+    spec_runs, "key", "mdps", "bar", PATCH_NAMES[CURRENT_SEASON]
+)
+stacked_week_fig = generate_stack_figure(
+    week_summary, "week", "mdps", "bar", PATCH_NAMES[CURRENT_SEASON]
+)
 
 DATA_LAST_UPDATED = datetime.datetime.fromtimestamp(
     int(os.path.getmtime(db_file_path))
@@ -145,6 +185,28 @@ def construct_figure_header(elements):
             )
         )
     return children
+
+
+def construct_season_selector(id_, ishidden):
+    """Constructs dropdown season select menu."""
+
+    dropdown = dcc.Dropdown(
+        className="dropdown",
+        id=id_,
+        options=[
+            {"label": "BFA Season 4 (8.3)", "value": "bfa4"},
+            {
+                "label": "BFA post-patch (9.0.1)",
+                "value": "bfa4_postpatch",
+            },
+        ],
+        value="bfa4_postpatch",
+        clearable=False,
+        style={"width": "50%"},
+    )
+    if ishidden:
+        dropdown.style = {"display": "none"}
+    return dropdown
 
 
 figure_header_elements = {
@@ -263,13 +325,6 @@ errata_and_faq = dcc.Markdown(  # &nbsp; is a hacky way to add a blank line to M
     """
     #### FAQ:
 
-    **The top key this patch is a +32. Why do your charts only go up to +31?**
-
-    The +32 was timed on the Chinese realms. My backend currently doesn't support CN.
-    Support will be added in SL.
-
-    &nbsp;
-
     **In your top figure why are you using completed key,
     instead of timed key, for BEST KEY?**
 
@@ -279,7 +334,7 @@ errata_and_faq = dcc.Markdown(  # &nbsp; is a hacky way to add a blank line to M
 
     **How frequently are the data updated?**
 
-    The data are updated daily around 2am US CST.
+    The data are updated daily.
 
     &nbsp;
 
@@ -291,12 +346,6 @@ errata_and_faq = dcc.Markdown(  # &nbsp; is a hacky way to add a blank line to M
     Other good M+ stats websites are
     [mplus.subcreation.net](https://mplus.subcreation.net)
     and [bestkeystone.com](https://bestkeystone.com).
-
-    &nbsp;
-
-    **Will you make more dashboards?**
-
-    Yep. My goal is to add something new every 1 to 3 months.
 
     &nbsp;
 
@@ -338,9 +387,32 @@ app.layout = html.Div(
             html.H1(children="Benched :: Mythic+ at a glance"),
             figure_list,
             html.P(
-                "Data updated: %s UTC" % DATA_LAST_UPDATED,
+                "Data updated: %s US CST" % DATA_LAST_UPDATED,
                 style={"text-align": "right"},
             ),
+            html.Div(
+                children=[
+                    html.Div(
+                        dcc.Markdown(
+                            "#### SELECT SEASON",
+                            #       style={
+                            #           "color": "red",
+                            #           "display": "flex",
+                            #           "justify-content": "center",
+                            #       },
+                        ),
+                        style={"float": "left", "margin-right": "10px"},
+                    ),
+                    html.Div(
+                        construct_season_selector(
+                            id_="master-season-switch", ishidden=False
+                        ),
+                        style={"float": "right", "margin-top": "15px"},
+                    ),
+                ],
+                style={"display": "inline-block"},
+            ),
+            html.Hr(),
             html.Div(
                 className="figure-header",
                 children=construct_figure_header(figure_header_elements["figure1"]),
@@ -350,36 +422,45 @@ app.layout = html.Div(
                     dcc.Tab(
                         label="RUNS BY SPEC & KEY LEVEL",
                         children=[
+                            construct_season_selector(
+                                id_="fig1-ridgeplot-season-switch", ishidden=True
+                            ),
                             dcc.Graph(
                                 className="figure",
-                                id="example-graph",
+                                id="fig1-ridgeplot",
                                 figure=ridgeplot_fig,
                                 config=fig_config,
                                 # add margin here to compensate for title squish
                                 style={"margin-top": "20px"},
-                            )
+                            ),
                         ],
                     ),
                     dcc.Tab(
                         label="RUNS BY SPEC",
                         children=[
+                            construct_season_selector(
+                                id_="fig1-bubble-season-switch", ishidden=True
+                            ),
                             dcc.Graph(
                                 className="figure",
                                 id="fig1-bubble-chart",
                                 figure=bubble_fig,
                                 config=fig_config,
-                            )
+                            ),
                         ],
                     ),
                     dcc.Tab(
                         label="RUNS BY KEY LEVEL",
                         children=[
+                            construct_season_selector(
+                                id_="fig1-key-hist-season-switch", ishidden=True
+                            ),
                             dcc.Graph(
                                 className="figure",
                                 id="fig1-key-hist",
                                 figure=histogram_fig,
                                 config=fig_config,
-                            )
+                            ),
                         ],
                     ),
                 ]
@@ -389,6 +470,7 @@ app.layout = html.Div(
                 className="figure-header",
                 children=construct_figure_header(figure_header_elements["figure2"]),
             ),
+            construct_season_selector(id_="fig2-season-switch", ishidden=True),
             dcc.RadioItems(
                 id="figure2-radio",
                 options=radio_options,
@@ -409,6 +491,7 @@ app.layout = html.Div(
                 className="figure-header",
                 children=construct_figure_header(figure_header_elements["figure3"]),
             ),
+            construct_season_selector(id_="fig3-season-switch", ishidden=True),
             dcc.RadioItems(
                 id="figure3-radio",
                 options=radio_options,
@@ -433,16 +516,39 @@ app.layout = html.Div(
 
 
 @app.callback(
+    [
+        Output(component_id="fig1-ridgeplot", component_property="figure"),
+        Output(component_id="fig1-bubble-chart", component_property="figure"),
+        Output(component_id="fig1-key-hist", component_property="figure"),
+    ],
+    Input(component_id="master-season-switch", component_property="value"),
+    prevent_initial_call=True,
+)
+def update_figure1(season):
+    """Updates 3 panels of figure 1 based on season."""
+    spec_runs = format_raw_data_main_summary(RAW_AGG_DATA, season=season)
+    patch_name = PATCH_NAMES[season]
+    ridgeplot = generate_ridgeplot(spec_runs, patch_name)
+    bubble_chart = make_bubble_plot(spec_runs, patch_name)
+    histogram = generate_run_histogram(spec_runs, patch_name)
+    # stacked_levels = generate_stack_figure(spec_runs, "key", "mdps", "bar")
+    return [ridgeplot, bubble_chart, histogram]
+
+
+@app.callback(
     Output(component_id="keylevel-stacked-fig", component_property="figure"),
     [
         Input(component_id="figure2-dropdown", component_property="value"),
         Input(component_id="figure2-radio", component_property="value"),
+        Input(component_id="fig2-season-switch", component_property="value"),
     ],
 )
-def update_figure2(role, isbar):
+def update_figure2(role, isbar, season):
     """Switch between sorted by key and sorted by population view."""
+    spec_runs = format_raw_data_main_summary(RAW_AGG_DATA, season=season)
+    patch_name = PATCH_NAMES[season]
     stack_figure = generate_stack_figure(
-        data=main_summary, chart_type="key", role=role, stack_type=isbar
+        data=spec_runs, chart_type="key", role=role, stack_type=isbar, patch=patch_name
     )
     return stack_figure
 
@@ -452,14 +558,45 @@ def update_figure2(role, isbar):
     [
         Input(component_id="figure3-dropdown", component_property="value"),
         Input(component_id="figure3-radio", component_property="value"),
+        Input(component_id="fig3-season-switch", component_property="value"),
     ],
 )
-def update_figure3(role, isbar):
+def update_figure3(role, isbar, season):
     """Switch between sorted by key and sorted by population view."""
+    if season == "bfa4" or season == "bfa4_postpatch":
+        patch_name = "BFA S4 & Post-patch"
+    else:
+        patch_name = PATCH_NAMES[season]
     stack_figure = generate_stack_figure(
-        data=week_summary, chart_type="week", role=role, stack_type=isbar
+        data=week_summary,
+        chart_type="week",
+        role=role,
+        stack_type=isbar,
+        patch=patch_name,
+    )
+    # add "post-patch" label to last week
+    # this will need to be fixed in SL main release!
+    stack_figure.add_annotation(
+        dict(x=38.5, y=0, xanchor="left", yanchor="top", text="39: post-patch"),
+        showarrow=False,
     )
     return stack_figure
+
+
+@app.callback(
+    [
+        Output(component_id="fig1-ridgeplot-season-switch", component_property="value"),
+        Output(component_id="fig1-bubble-season-switch", component_property="value"),
+        Output(component_id="fig1-key-hist-season-switch", component_property="value"),
+        Output(component_id="fig2-season-switch", component_property="value"),
+        Output(component_id="fig3-season-switch", component_property="value"),
+    ],
+    Input(component_id="master-season-switch", component_property="value"),
+    prevent_initial_call=True,
+)
+def set_data(season):
+    """Change data var inside DATA_CONTAINER."""
+    return [season] * 5
 
 
 # this is a very hacky way to add tracking, see this instead:
