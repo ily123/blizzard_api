@@ -1,7 +1,4 @@
-Draft - there are mistakes in this README...
----
-
-# M+ Meta Watch 
+# Metawatch 
 
 Backend code for collection and storage of Blizzard's Mythic+ leaderboard data.
 
@@ -9,20 +6,15 @@ Backend code for collection and storage of Blizzard's Mythic+ leaderboard data.
 
 ## Overview 
 
-![test](mw_pic.svg) <!-- .element height="150%" width="150%" -->
+![workflow](metawatch_diagram.svg)
 
-
-The pipeline assembled from the codes in this repo does these things:
-
-1. Retrieve IDs of M+ runs recorded in our database (for the current week)
-2. Query Blizzard's API for current week's M+ leaderbords
-3. Parse leaderboard jsons, assign unique IDs to all relevant records
-4. Find novel records in the parse results by comparing them to output of step (1)
-5. Push novel records into the database
-6. Summarize data in the DB and pipe it into an SQLite file, which we can 
-then pass to the front end (see this repo).
-
-The code is fairly modular/generic, so you can build things differently. See repo structure and docstrings for more detail.
+The pipeline is as follows:
+1. Query Blizzard's API for current week's M+ leaderbord
+2. Parse leaderboard jsons, assign unique IDs to all records
+3. Retrieve of M+ records already in our database (for the current week)
+4. Find records that are new
+5. Push new records into the database
+6. Summarize data in the DB and send it to the front-end ($$LINK$$)
 
 ## Repo struct
 
@@ -33,19 +25,15 @@ The code is fairly modular/generic, so you can build things differently. See rep
     ├── blizzard_api.py            # module with fetch/parse logic
     ├── blizzard_credentials.py    # authorization module
     ├── mplusdb.py                 # database connector
-    ├── populate_realm_table.py    # <<< not sure if this is needed
     ├── README.md                  
-    ├── requirements.txt          
-    ├── summarize.py               # script to create / update / export summary data
-    ├── tasks.py                   # high-level pipeline to populate the DB with data
+    ├── requirements.txt           
+    ├── summarize.py               # script to create / update / export summary data in the DB
+    ├── tasks.py                   # high-level methods that compose the pipeline
     └── utils.py                   # utility methods
 ```
 
-## Prerequisite: MySQL database
-The code in this repo talks to a MySQL database, and the database has to be set up first.
-How you do that is up to you. Here is the guide I used to set up a local MySQL database. And here is the guide to any number of cloud solutions "GOOGLE: set up MySQL database in the cloud."
-
-The version I am using locally for development is:
+## Prerequisite: MySQL server
+The code sits on top of a MySQL RDMS. The version I am using locally for development is:
 
 ```
 Ver 8.0.21 for Linux on x86_64 (MySQL Community Server - GPL)
@@ -54,35 +42,36 @@ And on AWS RDS for "production":
 ```
 aws-ver-...
 ```
-All of the SQL operations are very generic, so I don't think it matters what version you use as long as it's 8+.
+To install MySQL locally see this guide ($$LINK$$). If you want to set up a remote DB,
+your cloud provider should have a guide on how to do it.
 
+Note on version: there are two major versions of MySQL client - 5.0.XXX and 8.0.XXX. Any
+8.0.+ should work fine.
 
 ## Installation 
-This thing runs on python3, and uses only a few high-level dependencies.
-
-1. Install ```mysql``` utility for Linux:
-    ```
-    sudo apt-get FIND PACKAGE NAME
-    ```
-    Linux uses this to talk to the database.
-
-2. Install Python3, any version 3.6 and up should be fine
+**1. Install python and create a blank environment.**
+* Install Python3, any version 3.6 and up should be fine
     ```
     sudo apt-get install python3.6
     ```
-3. Use your favorite env manager to create and active a blank virtual environment
+
+* Use your favorite env manager to create and active a new virtual environment
     ```
-    mkdir envs  # I keep my environments under /home/envs
+    mkdir envs  # I keep my environments under /home/envs, you do whatever
     cd envs
     python3.6 -m venv metawatch  # will createa 'metawatch' folder under env/
     source /home/envs/metawatch/bin/activate
     cd ~
     ```
-4. Clone m2watch-backend repo to your machine
+
+**2. Get the code and install third-party modules**
+
+* Clone the repo locally:
+
     ```
     git clone https://github.com/ily123/blizzard_api
     ```
-5. Install dependencies using ```requirements.txt```
+* Install dependencies using ```requirements.txt```
     ```
     cd metawatch
     pip install -r requirements.txt
@@ -94,11 +83,44 @@ This thing runs on python3, and uses only a few high-level dependencies.
     pip install requests
     pip install mysql-connector-python
     ```
-6. Don't try to run anything yet. You still need to configure DB connection, and authorization token for API access.
+* Don't try to run anything yet. You still need to configure DB access, and get Blizzard authorization token.
+* At this point you should be able to get data from Blizzard. To test, run
+```
+python tasks --TEST
+```
+This will retrieve leaderboard results for the first realm/dungeon. The output should look something like this:
+```
+BLAH
+```
 
+**3. Configure Blizzard API authorization**
 
-## Configuration
-Once you got a DB and 
+To access Blizzard API, you need to register with Blizzard and get a $$SOMETHING$$. See $$LINK$$.
+Once you have the $$TOKEN$$:
+* save it in the ```config/``` folder as ```$$NAME$$```
+* use the following format:
+    ```
+    blah
+    blah
+    ```
+
+**4. Configure database access**
+
+* go to ```metawatch/config/``` and create a file named ```.db_config```
+* in the file, enter your DB user login and password in the following format:
+    ```
+    $$user$$: ABC
+    $$password$$: XYZ
+    ```
+* the .gitignore file is configured to ignore all contents of the ```config/``` dir, but make sure these don't end up 
+    on public display by accident
+
+**5. Populate the database with empty tables**
+* go to ```sql_scripts/```, and issue the following command:
+
+    ```mysql $$ something something $$```
+
+This will create a ```keyruns``` database on your mysql server, and populate it with empty tables.
 
 ## Usage
 ## License
