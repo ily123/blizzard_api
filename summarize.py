@@ -60,7 +60,7 @@ def update_runs(period1: int, period2: int):
         INNER JOIN roster on new_table.id = roster.run_id
         WHERE new_table.period BETWEEN %d AND %d
         GROUP BY period, spec, level
-        ON DUPLICATE KEY UPDATE count=count;
+        ON DUPLICATE KEY UPDATE count=VALUES(count);
     """
     update_query = update_query % (period1, period2)
     result = send_query_to_mdb(update_query)
@@ -188,8 +188,8 @@ def push_weekly_runs_to_sqlite(weekly_runs):
 if __name__ == "__main__":
     # runs = get_runs()
     # push_runs_to_sqlite(runs)
-    update_runs(770, 772)
     t0 = time.time()
+    update_runs(770, 772)
     runs_summary = get_runs_summary()
     print("Updated runs summary table in ", time.time() - t0)
     push_runs_summary_to_sqlite(runs_summary)
