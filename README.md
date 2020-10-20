@@ -9,7 +9,7 @@ Backend code for collection and storage of Blizzard's Mythic+ leaderboard data.
 
 ## Overview 
 
-![test](mw_pic.svg) <!-- .element height="50%" width="50%" -->
+![test](mw_pic.svg) <!-- .element height="150%" width="150%" -->
 
 
 The pipeline assembled from the codes in this repo does these things:
