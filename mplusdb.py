@@ -75,6 +75,7 @@ class MplusDatabase(object):
         self.credentials["user"] = parser["DATABASE"]["user"]
         self.credentials["password"] = parser["DATABASE"]["password"]
         self.credentials["host"] = parser["DATABASE"]["host"]
+        self.credentials["database"] = "keyruns"
 
     @staticmethod
     def parse_config_file(file_path):
@@ -110,8 +111,8 @@ class MplusDatabase(object):
         try:
             cursor.execute(query)
             connection.commit()
-        except:
-            raise Exception("Problem inserting data.")
+        except Exception as e:
+            raise Exception("Problem inserting data: ", str(e))
         finally:
             cursor.close()
             connection.close()
