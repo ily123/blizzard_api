@@ -10,8 +10,12 @@ Backend code for collection and storage of Blizzard's Mythic+ leaderboard data.
 
 The pipeline is as follows:
 1. Query Blizzard's API for current week's M+ leaderbord
-2. Parse leaderboard jsons, assign unique IDs to all records
-3. Retrieve of M+ records already in our database (for the current week)
+2. Parse leaderboard data, assign unique ids to all records
+    * Principally, the data is parsed into two tables (where each row is a 'record'):
+        * ```run``` - each row corresponds to a M+ run with all of its metadata (level, instance, time, etc)
+        * ```roster``` - player chracter data (name, spec, realm, etc), linked to the run table via ```run_id```
+        * each ```run``` record normally corresponds to 5 ```roster``` records (there are 5 player characters per run)
+3. Retrieve ids of M+ records already in our database (for the current week)
 4. Find records that are new
 5. Push new records into the database
 6. Summarize data in the DB and send it to the front-end ($$LINK$$)
@@ -87,14 +91,20 @@ Note on version: there are two major versions of MySQL client - 5.0.XXX and 8.0.
 
 **3. Configure Blizzard API authorization**
 
-To access Blizzard API, you need to register with Blizzard and get a $$SOMETHING$$. See $$LINK$$.
-Once you have the $$TOKEN$$:
-* save it in the ```config/``` folder as ```$$NAME$$```
-* use the following format:
+To access Blizzard API, you need to register with Blizzard and get a ```client id``` and ```client secret```. The code looks for client information in the .ini file under ```config/blizzard_api_access.ini```.
+
+* To get ```client id``` and ```client secret``` follow Blizzard's instructions [here](https://develop.battle.net/documentation/guides/getting-started).
+
+* Once you have the client tokens, save them in the ```config/``` folder as ```blizzard_api_access.ini``` formatted as follows:
     ```
-    blah
-    blah
+    [BLIZZARD]
+    client_id = client_id_string
+    client_secret = client_secret_string
     ```
+    In the repo, there is template file for this - ```config/_blizzard_api_acess.ini```. You can paste the strings in there (don't forget to remove the leading underscore after you save).
+* Using these, the code will generate an API access token every time before a data retrieval session. The API access token resets every 24 hours (so we simply regeneate before every session), but the client information is static.
+
+**4. Test data retrieval**
 * At this point you should be able to get data from Blizzard. To test, run
 ```
 python tasks --TEST
@@ -103,7 +113,9 @@ This will retrieve leaderboard results for the first realm/dungeon. The output s
 ```
 BLAH
 ```
+If you don't plan to store the data, you are done. See ```examples.nb``` for examples of using the API to retrieve data.
 
+---
 **4. Configure database access**
 
 * go to ```metawatch/config/``` and create a file named ```.db_config```
