@@ -1,4 +1,6 @@
 """Module for uploading data to the M+ MySQL database."""
+import configparser
+
 import mysql.connector
 import pandas as pd
 
@@ -9,7 +11,7 @@ class MplusDatabase(object):
     __utility_tables = ["realm", "region", "dungeon", "spec", "period"]
     __table_fields = {  # these are used to formulate batch inserts queries
         "period": ["region", "id", "start_timestamp", "end_timestamp"],
-        "new_table": [
+        "run": [
             "id",
             "dungeon",
             "level",
@@ -66,7 +68,13 @@ class MplusDatabase(object):
 
     def __init__(self, config_file_path):
         """Inits with database config file."""
-        self.credentials = self.parse_config_file(config_file_path)
+        # self.credentials = self.parse_config_file(config_file_path)
+        parser = configparser.ConfigParser()
+        parser.read(config_file_path)
+        self.credentials = {}
+        self.credentials["user"] = parser["DATABASE"]["user"]
+        self.credentials["password"] = parser["DATABASE"]["password"]
+        self.credentials["host"] = parser["DATABASE"]["host"]
 
     @staticmethod
     def parse_config_file(file_path):

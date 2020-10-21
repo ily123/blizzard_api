@@ -1,6 +1,7 @@
 """Module for handling Blizzard API client secret and access token."""
 
 
+import configparser
 import time
 
 import requests
@@ -17,10 +18,10 @@ class Credentials:
     def get_client_id_and_secret(tokens_file_path):
         """Loads Blizzard OAuth client id and secret from a text file.
 
-        File must be stricktly formatted as two tab-delimited lines:
-
-            client_id     client_id_string
-            client_secret client_secret_sting
+        File must be in .ini format as follows:
+            [BLIZZARD]
+            client_id = client_id_string
+            client_secret = client_secret_sting
 
         Parameters
         ----------
@@ -33,17 +34,12 @@ class Credentials:
             dictionary containing client id and secret
         """
 
-        credentials = {"client_id": None, "client_secret": None}
-        file = open(tokens_file_path, "r")
-        line = file.readline()
-        while line:
-            cargo = line.split()[1]
-            if "client_id" in line:
-                credentials["client_id"] = cargo
-            elif "client_secret" in line:
-                credentials["client_secret"] = cargo
-            line = file.readline()
-        file.close()
+        parser = configparser.ConfigParser()
+        parser.read("config/blizzard_api_access.ini")
+        credentials = {
+            "client_id": parser["BLIZZARD"]["client_id"],
+            "client_secret": parser["BLIZZARD"]["client_secret"],
+        }
         return credentials
 
     @staticmethod

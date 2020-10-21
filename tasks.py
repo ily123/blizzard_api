@@ -14,12 +14,13 @@ import mplusdb
 
 importlib.reload(mplusdb)
 importlib.reload(blizzard_api)
-mdb = mplusdb.MplusDatabase(".db_config")
+mdb = mplusdb.MplusDatabase("config/db_config.ini")
 
 
 def get_access_token():
-    auth = blizzard_credentials.Credentials(".api_tokens")
-    return auth.access_token
+    """Get OAuth access tokens."""
+    cred = blizzard_credentials.Credentials("config/blizzard_api_access.ini")
+    return cred.access_token
 
 
 def get_leaderboard_urls(region, period, dungeon):
@@ -111,7 +112,7 @@ def pull_existing_run_ids(region, period):
         cursor = conn.cursor()
         cursor.execute("use keyruns")
         cursor.execute(
-            "SELECT id FROM new_table WHERE region=%s and period=%s" % (region, period)
+            "SELECT id FROM run WHERE region=%s and period=%s" % (region, period)
         )
         run_ids = cursor.fetchall()
         cursor.close()
@@ -132,7 +133,7 @@ def find_uniq(existing_ids, runs):
     return new_records
 
 
-def main_method():
+def main_method(period=None):
     """blah"""
     caller = blizzard_api.Caller()
     dungeons = caller.get_dungeons()
@@ -140,7 +141,8 @@ def main_method():
     # regions = ["eu"]
     # dungeons = [244]
     for region in regions:
-        period = caller.get_current_period(region)
+        if not period:
+            period = caller.get_current_period(region)
         print("period %s, region %s" % (period, region))
         t0 = time.time()
         existing_run_ids = pull_existing_run_ids(region, period)  # what's in the DB
@@ -158,7 +160,7 @@ def main_method():
             print("New runs: ", len(novel_runs))
             t0 = time.time()
             if len(novel_runs) > 0:
-                mdb.insert(table="new_table", data=novel_runs)
+                mdb.insert(table="run", data=novel_runs)
                 mdb.insert(table="roster", data=novel_rosters)
             print("Inserting new runs: ", time.time() - t0)
             print("-next-" * 5)

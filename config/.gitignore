@@ -1,0 +1,6 @@
+# Ignore everything in this directory
+*
+# Except this file and templates
+!.gitignore
+!_db_config.ini
+!_blizzard_api_access.ini

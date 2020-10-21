@@ -507,7 +507,7 @@ class RealmRecord:
 class Caller:
     """Abstracts API interactions into a high-level interface."""
 
-    __default_access_token_fp = ".api_tokens"
+    __default_access_token_fp = "config/blizzard_api_access.ini"
 
     def __init__(self, access_token=None):
         """Inits wtih access token. If no token, tries to get one."""

@@ -22,7 +22,7 @@ import mplusdb
 def send_query_to_mdb(query, isfetch=False) -> Optional[List[tuple]]:
     """Sends query to MDB."""
     result = None
-    mdb = mplusdb.MplusDatabase(".db_config")
+    mdb = mplusdb.MplusDatabase("config/db_config.ini")
     conn = mdb.connect()
     try:
         cursor = conn.cursor()
@@ -43,22 +43,22 @@ def get_runs():
     """Aggs runs table by spec/level."""
     query = """
        SELECT spec, level, count(level) FROM
-       (SELECT run_id, spec, level FROM new_table INNER JOIN
-       roster ON roster.run_id = new_table.id) as J
+       (SELECT run_id, spec, level FROM run INNER JOIN
+       roster ON roster.run_id = run.id) as J
        GROUP BY spec, level;
     """
     data = send_query_to_mdb(query, isfetch=True)
     return data
 
 
-def update_runs(period1: int, period2: int):
+def update_runs_summary(period1: int, period2: int):
     """Updates summary table with data from [period1 to period2]."""
     update_query = """
         INSERT INTO summary_spec
         SELECT period, spec, level, count(level) as count
-        FROM new_table
-        INNER JOIN roster on new_table.id = roster.run_id
-        WHERE new_table.period BETWEEN %d AND %d
+        FROM run
+        INNER JOIN roster on run.id = roster.run_id
+        WHERE run.period BETWEEN %d AND %d
         GROUP BY period, spec, level
         ON DUPLICATE KEY UPDATE count=VALUES(count);
     """
@@ -189,7 +189,7 @@ if __name__ == "__main__":
     # runs = get_runs()
     # push_runs_to_sqlite(runs)
     t0 = time.time()
-    update_runs(770, 772)
+    update_runs_summary(770, 772)
     runs_summary = get_runs_summary()
     print("Updated runs summary table in ", time.time() - t0)
     push_runs_summary_to_sqlite(runs_summary)

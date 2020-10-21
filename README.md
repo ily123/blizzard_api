@@ -84,14 +84,6 @@ Note on version: there are two major versions of MySQL client - 5.0.XXX and 8.0.
     pip install mysql-connector-python
     ```
 * Don't try to run anything yet. You still need to configure DB access, and get Blizzard authorization token.
-* At this point you should be able to get data from Blizzard. To test, run
-```
-python tasks --TEST
-```
-This will retrieve leaderboard results for the first realm/dungeon. The output should look something like this:
-```
-BLAH
-```
 
 **3. Configure Blizzard API authorization**
 
@@ -103,6 +95,14 @@ Once you have the $$TOKEN$$:
     blah
     blah
     ```
+* At this point you should be able to get data from Blizzard. To test, run
+```
+python tasks --TEST
+```
+This will retrieve leaderboard results for the first realm/dungeon. The output should look something like this:
+```
+BLAH
+```
 
 **4. Configure database access**
 
