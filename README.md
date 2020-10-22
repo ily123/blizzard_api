@@ -91,7 +91,7 @@ Note on version: there are two major versions of MySQL client - 5.0.XXX and 8.0.
 
 **3. Configure Blizzard API authorization**
 
-To access Blizzard API, you need to register with Blizzard and get a ```client id``` and ```client secret```. The code looks for client information in the .ini file under ```config/blizzard_api_access.ini```.
+To access Blizzard API, you need to register with Blizzard and get a ```client id``` and ```client secret```. Save this information under ```config/blizzard_api_access.ini```.
 
 * To get ```client id``` and ```client secret``` follow Blizzard's instructions [here](https://develop.battle.net/documentation/guides/getting-started).
 
@@ -102,7 +102,7 @@ To access Blizzard API, you need to register with Blizzard and get a ```client i
     client_secret = client_secret_string
     ```
     In the repo, there is template file for this - ```config/_blizzard_api_acess.ini```. You can paste the strings in there (don't forget to remove the leading underscore after you save).
-* Using these, the code will generate an API access token every time before a data retrieval session. The API access token resets every 24 hours (so we simply regeneate before every session), but the client information is static.
+* Using these, the code will generate an API access token every time before a data retrieval session. 
 
 **4. Test data retrieval**
 * At this point you should be able to get data from Blizzard. To test, run
@@ -116,7 +116,22 @@ BLAH
 If you don't plan to store the data, you are done. See ```examples.nb``` for examples of using the API to retrieve data.
 
 ---
-**4. Configure database access**
+**5. Create the database and populate with empty tables**
+
+Follow the steps below to create the database.
+* go to ```sql_scripts/```, and issue the following command:
+
+    ```
+    mysql -u <user> -h <host> -p schema.sql
+    ```
+
+* This will connect to the DB and create a ```keyruns``` database. It will then populate ```keyruns``` with empty tables. The two main tables are ```roster``` and ```run```.
+* There are also a few utility tables (```expansion```, ```region```, ```realm```, etc).
+Most of these contain static data that doesn't change often.
+I still need to write stand-alone scripts to populate & update these tables.
+You don't need these tables for the core pipeline functionality.
+
+**6. Configure database access**
 
 * go to ```metawatch/config/``` and create a file named ```.db_config```
 * in the file, enter your DB user login and password in the following format:
@@ -127,12 +142,6 @@ If you don't plan to store the data, you are done. See ```examples.nb``` for exa
 * the .gitignore file is configured to ignore all contents of the ```config/``` dir, but make sure these don't end up 
     on public display by accident
 
-**5. Populate the database with empty tables**
-* go to ```sql_scripts/```, and issue the following command:
-
-    ```mysql $$ something something $$```
-
-This will create a ```keyruns``` database on your mysql server, and populate it with empty tables.
 
 ## Usage
 ## License
