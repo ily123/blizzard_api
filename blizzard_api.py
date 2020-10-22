@@ -3,8 +3,8 @@
 Blizzard/WoW API docs:
 https://develop.battle.net/documentation/world-of-warcraft/game-data-apis
 """
-import importlib
 import re
+from typing import Optional
 
 import requests
 
@@ -12,38 +12,45 @@ import blizzard_credentials
 import utils
 from utils import Utils
 
-importlib.reload(utils)
-importlib.reload(blizzard_credentials)
 SPEC_UTILS = utils.Specs()
 SCORER = utils.Scorer()
+
+
+def _isvalid(region: str) -> bool:
+    """Checks if region string is valid."""
+    valid_regions = ["us", "eu", "kr", "tw", "cn"]
+    if region.lower() in valid_regions:
+        return True
+    else:
+        return False
 
 
 class UrlFactory:
     """API url call constructor."""
 
-    def __init__(self, access_token, region):
-        """Inits with access token.
+    def __init__(self, access_token: str, region: str) -> None:
+        """Inits with API access token and region id.
 
-        Token is generated via _XXX_ call.
+        Region id must be one of 'us', 'eu', 'kr', 'tw', 'cn'
         """
-        self.access_token = access_token
-        self.host = self.get_host(region)
+        if not _isvalid(region):
+            raise ValueError("region token must be one of: us, eu, kr, tw, cn")
         self.region = region
-        self.locale = "en_US"
+        self.access_token = access_token
+        self.host = self._get_host(region)
+        self.locale = "en_US"  # not entirel sure how this affects calls
 
     @staticmethod
-    def get_host(region):
-        """Constucts host name component of the request call."""
+    def _get_host(region: str) -> str:
+        """Constucts regional host name component of the request call."""
         if region == "cn":
             host = "gateway.battlenet.com.cn"
-        elif region in ["us", "eu", "kr", "tw"]:
-            host = "{region}.api.blizzard.com".format(region=region)
         else:
-            raise ValueError("region token must be one of: us, eu, kr, tw, cn")
+            host = "{region}.api.blizzard.com".format(region=region)
         return host
 
-    def get_request_call_url(self, endpoint, namespace):
-        """Constructs request call from endpoint and params."""
+    def _get_request_call_url(self, endpoint: str, namespace: str) -> str:
+        """Constructs Url of the API request call."""
         template = (
             "https://{host}/{endpoint}?namespace={namespace}&"
             + "locale={locale}&"
@@ -58,39 +65,41 @@ class UrlFactory:
         )
         return call_url
 
-    def get_connected_realm_index_url(self):
-        """Constucts API call to get list of individual realm calls."""
+    def get_connected_realm_index_url(self) -> str:
+        """Constucts URL for connected realm index (list) call."""
         endpoint = "data/wow/connected-realm/index"
         namespace = "dynamic-{region}".format(region=self.region)
-        call_url = self.get_request_call_url(endpoint, namespace)
+        call_url = self._get_request_call_url(endpoint, namespace)
         return call_url
 
-    def get_connected_realm_call(self, realm_id):
-        """Constructs call for a given connected realm."""
+    def get_connected_realm_url(self, realm_id: int) -> str:
+        """Constructs URL for connected realm call."""
         endpoint = "data/wow/connected-realm/{rid}".format(rid=realm_id)
         namespace = "dynamic-{region}".format(region=self.region)
-        call_url = self.get_request_call_url(endpoint, namespace)
+        call_url = self._get_request_call_url(endpoint, namespace)
         return call_url
 
-    def get_mythic_plus_leaderboard_url(self, dungeon_id, realm_id, period):
-        """Constructs call to mythic+ leaderboard."""
+    def get_mythic_plus_leaderboard_url(
+        self, dungeon_id: int, realm_id: int, period: int
+    ) -> str:
+        """Constructs URL for mythic+ leaderboard call."""
         endpoint = (
             "data/wow/connected-realm/{realm}/mythic-leaderboard/"
             "{dungeon}/period/{period}"
         ).format(realm=realm_id, dungeon=dungeon_id, period=period)
         namespace = "dynamic-{region}".format(region=self.region)
-        call_url = self.get_request_call_url(endpoint, namespace)
+        call_url = self._get_request_call_url(endpoint, namespace)
         return call_url
 
-    def get_timeperiod_index_url(self):
-        """Constructs url for timeperiod index call."""
+    def get_timeperiod_index_url(self) -> str:
+        """Constructs URL for timeperiod index call."""
         endpoint = "data/wow/mythic-keystone/period/index"
         namespace = "dynamic-{region}".format(region=self.region)
-        call_url = self.get_request_call_url(endpoint, namespace)
+        call_url = self._get_request_call_url(endpoint, namespace)
         return call_url
 
-    def get_timeperiod_url(self, period):
-        """Constructs url for time period call."""
+    def get_timeperiod_url(self, period: int) -> str:
+        """Constructs URL for timeperiod call."""
         if period < 641:
             raise ValueError(
                 """
@@ -99,33 +108,33 @@ class UrlFactory:
             )
         endpoint = "/data/wow/mythic-keystone/period/{periodId}".format(periodId=period)
         namespace = "dynamic-{region}".format(region=self.region)
-        call_url = self.get_request_call_url(endpoint, namespace)
+        call_url = self._get_request_call_url(endpoint, namespace)
         return call_url
 
-    def get_spec_index_url(self):
-        """Returns indices of playable specializations."""
+    def get_spec_index_url(self) -> str:
+        """Constructs URL for a spec index call."""
         endpoint = "data/wow/playable-specialization/index"
         namespace = "static-{region}".format(region=self.region)
-        call_url = self.get_request_call_url(endpoint, namespace)
+        call_url = self._get_request_call_url(endpoint, namespace)
         return call_url
 
-    def get_spec_url(self, spec_id):
-        """Return url for playable spec call."""
+    def get_spec_url(self, spec_id: int) -> str:
+        """Constructs URL for spec call."""
         endpoint = "data/wow/playable-specialization/{spec_id}".format(spec_id=spec_id)
         namespace = "static-{region}".format(region=self.region)
-        call_url = self.get_request_call_url(endpoint, namespace)
+        call_url = self._get_request_call_url(endpoint, namespace)
         return call_url
 
-    def get_dungeon_index_url(self):
-        """Returns indices of current patch dungeons."""
+    def get_dungeon_index_url(self) -> str:
+        """Constructs URL for dungeons index call."""
         endpoint = "data/wow/mythic-keystone/dungeon/index"
         namespace = "dynamic-{region}".format(region=self.region)
-        call_url = self.get_request_call_url(endpoint, namespace)
+        call_url = self._get_request_call_url(endpoint, namespace)
         return call_url
 
 
 class ResponseParser:
-    """Parse Blizzard response Json."""
+    """Parses Blizzard response Json."""
 
     def __init__(self, json=None):
         """Inits with rolled-up json string."""
@@ -507,12 +516,12 @@ class RealmRecord:
 class Caller:
     """Abstracts API interactions into a high-level interface."""
 
-    __default_access_token_fp = "config/blizzard_api_access.ini"
+    _default_access_token_fp = "config/blizzard_api_access.ini"
 
-    def __init__(self, access_token=None):
-        """Inits wtih access token. If no token, tries to get one."""
+    def __init__(self, access_token: Optional[str] = None):
+        """Inits wtih access token. If token not given, tries to get one."""
         if not access_token:
-            auth = blizzard_credentials.Credentials(self.__default_access_token_fp)
+            auth = blizzard_credentials.Credentials(self._default_access_token_fp)
             access_token = auth.access_token
         self.access_token = access_token
         if not self.access_token:
@@ -523,7 +532,8 @@ class Caller:
         self.parser = ResponseParser()
 
     @staticmethod
-    def send_request(call_url):
+    def _send_request(call_url):
+        """Sends URL request to Blizzard API."""
         response = requests.get(call_url)
         if response.status_code != 200:
             raise (
@@ -538,7 +548,7 @@ class Caller:
         region = "us"
         url_factory = UrlFactory(self.access_token, region)
         url = url_factory.get_spec_index_url()
-        response = self.send_request(url)
+        response = self._send_request(url)
         json = response.json()
         specs = self.parser.parse_spec_index_json(json)
         return specs
@@ -548,7 +558,7 @@ class Caller:
         region = "us"
         url_factory = UrlFactory(self.access_token, region)
         url = url_factory.get_spec_url(spec_index)
-        response = self.send_request(url)
+        response = self._send_request(url)
         spec_info = self.parser.parse_spec_json(response.json())
         return spec_info
 
@@ -568,7 +578,7 @@ class Caller:
         call_url = url_factory.get_mythic_plus_leaderboard_url(
             dungeon_id=dungeon, realm_id=realm, period=period
         )
-        response = self.send_request(call_url)
+        response = self._send_request(call_url)
         leaderboard = self.parser.parse_keyrun_leaderboard_json(response.json())
         return leaderboard
 
