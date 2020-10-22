@@ -189,7 +189,7 @@ if __name__ == "__main__":
     # runs = get_runs()
     # push_runs_to_sqlite(runs)
     t0 = time.time()
-    update_runs_summary(770, 772)
+    update_runs_summary(770, 775)
     runs_summary = get_runs_summary()
     print("Updated runs summary table in ", time.time() - t0)
     push_runs_summary_to_sqlite(runs_summary)
