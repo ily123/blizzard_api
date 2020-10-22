@@ -16,6 +16,12 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
+-- Create keyruns database
+-- 
+CREATE DATABASE keyruns;
+USE keyruns;
+
+--
 -- Table structure for table `dungeon`
 --
 
