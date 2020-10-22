@@ -1,32 +1,58 @@
-"""Module for handling Blizzard API client secret and access token."""
+"""Module for generating Blizzard API access token.
+
+    Usage
+    -----
+
+    import blizzard_credentials
+
+    fp = "client_info.ini"
+    auth = blizzard_credentials.Credentials(fp)
+    api_token = auth.access_token
+
+"""
 
 
 import configparser
 import time
+from typing import Dict
 
 import requests
 
 
 class Credentials:
-    def __init__(self, tokens_fp):
-        """Inits with path to security tokens."""
-        self.attempts = 0
-        self.credentials = self.get_client_id_and_secret(tokens_fp)
-        self.access_token = self.create_access_token(self.credentials)
+    """Blizzard API token getter.
 
-    @staticmethod
-    def get_client_id_and_secret(tokens_file_path):
-        """Loads Blizzard OAuth client id and secret from a text file.
+    Attributes
+    ----------
+        access_token : str
+            Blizzard API access token (generated on init)
+    """
 
-        File must be in .ini format as follows:
+    def __init__(self, auth_tokens_fp: str):
+        """Inits with .ini file containing OAuth client tokens.
+
+        Parameter
+        ---------
+        auth_tokens_fp : str
+            path to .ini file formated as follows:
+
             [BLIZZARD]
             client_id = client_id_string
             client_secret = client_secret_sting
+        """
+        self.query_attempts = 0
+        self.credentials = self._parse_client_id_and_secret(auth_tokens_fp)
+        self.access_token = self._create_access_token()
+
+    @staticmethod
+    def _parse_client_id_and_secret(auth_tokens_fp: str) -> Dict[str, str]:
+        """Loads Blizzard OAuth client id and secret from a .ini file.
+
 
         Parameters
         ----------
-        tokens_file_path : str
-            file path of the file with client id and secret
+        auth_tokens_fp : str
+            file path of the .ini file with client id and secret
 
         Returns
         -------
@@ -43,8 +69,19 @@ class Credentials:
         return credentials
 
     @staticmethod
-    def query_blizzard(credentials):
-        """Sends auth token request to Blizzard API."""
+    def _query_blizzard(credentials: Dict[str, str]) -> requests.Response:
+        """Sends auth token request to Blizzard.
+
+        Parameters
+        ----------
+        credentials : dict
+            dict containing client id and secret
+
+        Returns
+        -------
+        response
+            requests response object
+        """
         region = "us"
         client_id = credentials["client_id"]
         client_secret = credentials["client_secret"]
@@ -56,13 +93,8 @@ class Credentials:
         )
         return response
 
-    def create_access_token(self, credentials):
+    def _create_access_token(self) -> str:
         """Given a credentials dict, generates OAuth access token.
-
-        Parameters
-        ----------
-        credentials : dict
-            dict containing client id and secret
 
         Returns
         -------
@@ -72,14 +104,14 @@ class Credentials:
         """
         response = None
         try:
-            response = self.query_blizzard(credentials)
+            response = self._query_blizzard(self.credentials)
         except BaseException as e:
-            self.attempts += 1
+            self.query_attempts += 1
             print("Error getting auth token: ", str(e))
-            if self.attempts < 5:
-                print("Sleep 1, then retry. Re-try %d" % self.attempts)
+            if self.query_attempts < 5:
+                print("Sleep 1, then retry. Re-try %d" % self.query_attempts)
                 time.sleep(1)
-                response = self.query_blizzard(credentials)
+                response = self._query_blizzard(self.credentials)
             else:
                 raise ConnectionError("Tried 5 times and failed to get auth token.")
         access_token = response.json()["access_token"]
