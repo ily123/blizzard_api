@@ -4,7 +4,7 @@ Blizzard/WoW API docs:
 https://develop.battle.net/documentation/world-of-warcraft/game-data-apis
 """
 import re
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import requests
 
@@ -23,6 +23,13 @@ def _isvalid(region: str) -> bool:
         return True
     else:
         return False
+
+
+def _get_realm_id_from_url(connected_realm_url: str) -> int:
+    """Parsess realm ID from the realm url."""
+    cap = re.findall("connected-realm\/(\d+)\?", connected_realm_url)
+    realm_id = int(cap[0])
+    return realm_id
 
 
 class UrlFactory:
@@ -141,45 +148,36 @@ class ResponseParser:
         if json:
             self.json = json
 
-    def parse_timeperiod_index_json(self, json):
+    def parse_timeperiod_index_json(self, json: dict) -> List[int]:
         """Retrieves time period ids from periond index call json."""
         period_ids = []
         for period in json["periods"]:
             period_ids.append(period["id"])
         return period_ids
 
-    def parse_timeperiod_json(self, json):
+    def parse_timeperiod_json(self, json: dict) -> Tuple[int, int]:
         """Retrieves start and end timestamps from period json."""
         start = json["start_timestamp"]
         end = json["end_timestamp"]
-        return [start, end]
+        return start, end
 
-    def parse_connected_realm_index_json(self, json):
+    def parse_connected_realm_index_json(self, json: dict) -> List[int]:
         """Unrolls json from a connected realm index call."""
-        if not json["connected_realms"]:
-            raise ("connected realms index json is empty")
         # the json supplies list of url calls to individual realms
         # we just want the realm ids contained in the urls
         realm_urls = [realm["href"] for realm in json["connected_realms"]]
         realm_ids = []
         for realm_url in realm_urls:
-            realm_ids.append(self.get_realm_id_from_url(realm_url))
+            realm_ids.append(_get_realm_id_from_url(realm_url))
         return realm_ids
 
-    def parse_connected_realm_json(self, json):
+    def parse_connected_realm_json(self, json) -> List[dict]:
         """Parses connected realm call json output."""
-        realms = []
+        realms_in_cluster = []
         for realm_json in json["realms"]:
             realm = RealmRecord(realm_json)
-            realms.append(realm)
-        return realms
-
-    @staticmethod
-    def get_realm_id_from_url(connected_realm_url):
-        """Parsess realm ID from the json."""
-        cap = re.findall("connected-realm\/(\d+)\?", connected_realm_url)
-        realm_id = cap[0]
-        return realm_id
+            realms_in_cluster.append(realm.get_as_dict())
+        return realms_in_cluster
 
     @staticmethod
     def parse_keyrun_leaderboard_json(json):
@@ -188,33 +186,39 @@ class ResponseParser:
         return leaderboard
 
     @staticmethod
-    def parse_spec_index_json(json):
+    def parse_spec_index_json(json: dict) -> List[dict]:
         """Parses spec index call response."""
         specs = []
         for spec in json["character_specializations"]:
             id_ = spec["id"]
             name = spec["name"]
-            specs.append((id_, name))
+            specs.append(dict(spec_id=id_, spec_name=name))
         return specs
 
     @staticmethod
-    def parse_spec_json(json):
+    def parse_spec_json(json: dict) -> dict:
         """Parses playable spec json."""
         spec_id = json["id"]
         spec_name = json["name"].lower()
         class_id = json["playable_class"]["id"]
         class_name = json["playable_class"]["name"].lower()
         role = json["role"]["type"].lower()
-        spec_info = [class_name, class_id, spec_name, spec_id, role]
+        spec_info = dict(
+            class_name=class_name,
+            class_id=class_id,
+            spec_name=spec_name,
+            spec_id=spec_id,
+            role=role,
+        )
         return spec_info
 
     @staticmethod
-    def parse_dungeon_index_json(json):
-        """Parses current dungeons index json."""
-        dungeon_ids = []
+    def parse_dungeon_index_json(json: dict) -> List[dict]:
+        """Parses current patch dungeons index json."""
+        dungeons = []
         for dungeon in json["dungeons"]:
-            dungeon_ids.append(dungeon["id"])
-        return dungeon_ids
+            dungeons.append({"id": dungeon["id"], "name": dungeon["name"]})
+        return dungeons
 
 
 class KeyRunLeaderboard:
@@ -238,7 +242,7 @@ class KeyRunLeaderboard:
         """Extracts leaderboard regon-level data."""
         self.api_call_url = self.json["_links"]["self"]["href"]
         self.period = self.json["period"]
-        self.realm = Utils().get_realm_id_from_url(self.json["connected_realm"]["href"])
+        self.realm = _get_realm_id_from_url(self.json["connected_realm"]["href"])
         self.dungeon = self.json["map_challenge_mode_id"]
         region_slug = Utils().get_region_from_url(self.api_call_url)
         self.region = Utils().encode_region(region_slug)
@@ -459,24 +463,24 @@ class RosterMember:
 class RealmRecord:
     """Container/parser for realm/shard info."""
 
-    def __init__(self, json):
+    def __init__(self, json: dict) -> None:
         """Inits with realm json component of realm id call return."""
         self.json = json
-        self.parse_json()
-        self.primary_key = self.generate_primary_key()
+        self._parse_json()
+        self.primary_key = self._generate_primary_key()
 
-    def parse_json(self):
+    def _parse_json(self) -> None:
         """Unrolls the realm json."""
         self.realm_id = self.json["id"]
         self.region = self.json["region"]["id"]
         cluster_url = self.json["connected_realm"]["href"]
-        self.cluster_id = int(ResponseParser.get_realm_id_from_url(cluster_url))
+        self.cluster_id = _get_realm_id_from_url(cluster_url)
         self.name = self.json["name"]
         self.timezone = self.json["timezone"]
         self.name_slug = self.json["slug"]
         self.locale = self.json["locale"]
 
-    def generate_primary_key(self):
+    def _generate_primary_key(self) -> str:
         """Generates a unique key for record.
 
         This will serve as PRIMARY KEY in the db table.
@@ -484,7 +488,7 @@ class RealmRecord:
         primary_key = "%s%s%s" % (self.region, self.cluster_id, self.realm_id)
         return primary_key
 
-    def get_data_for_database_table_as_dict(self):
+    def get_as_dict(self) -> dict:
         """Returns MDB-relevant portion of the record as dict."""
         # this one is so you can quickly make a DF with column headers
         record = {
@@ -498,27 +502,13 @@ class RealmRecord:
         }
         return record
 
-    def get_data_for_database_table_as_tuple(self):
-        """Returns MDB-relevant portion of the record as tuple."""
-        # this one is so you can directly insert into MySQL
-        record = (
-            self.cluster_id,
-            self.realm_id,
-            self.name,
-            self.name_slug,
-            self.region,
-            self.locale,
-            self.timezone,
-        )
-        return record
-
 
 class Caller:
     """Abstracts API interactions into a high-level interface."""
 
     _default_access_token_fp = "config/blizzard_api_access.ini"
 
-    def __init__(self, access_token: Optional[str] = None):
+    def __init__(self, access_token: Optional[str] = None) -> None:
         """Inits wtih access token. If token not given, tries to get one."""
         if not access_token:
             auth = blizzard_credentials.Credentials(self._default_access_token_fp)
@@ -535,15 +525,15 @@ class Caller:
     def _send_request(call_url):
         """Sends URL request to Blizzard API."""
         response = requests.get(call_url)
-        if response.status_code != 200:
-            raise (
-                """Call not successful
-                [status code %s]: %s"""
+        response.raise_for_status()  # catches 4xx and 5xx codes
+        if response.status_code != 200:  # if something non-obvious happened
+            raise Exception(
+                "Call not successful [status code %s]: %s"
                 % (response.status_code, call_url)
             )
         return response
 
-    def get_spec_indices(self):
+    def get_spec_ids(self) -> List[dict]:
         """Gets list of spec ids and names."""
         region = "us"
         url_factory = UrlFactory(self.access_token, region)
@@ -553,22 +543,21 @@ class Caller:
         specs = self.parser.parse_spec_index_json(json)
         return specs
 
-    def get_spec_by_index(self, spec_index):
-        """Returns full info for spec."""
+    def get_spec_by_id(self, spec_id: int) -> dict:
+        """Gets full spec info given spec id."""
         region = "us"
         url_factory = UrlFactory(self.access_token, region)
-        url = url_factory.get_spec_url(spec_index)
+        url = url_factory.get_spec_url(spec_id)
         response = self._send_request(url)
         spec_info = self.parser.parse_spec_json(response.json())
         return spec_info
 
-    def get_class_spec_table(self):
-        """Gets class/spec table."""
+    def get_class_spec_table(self) -> List[dict]:
+        """Gets table of playable classes and specs."""
         class_spec_table = []
-        specs = self.get_spec_indices()
+        specs = self.get_spec_ids()
         for spec in specs:
-            spec_id = spec[0]
-            spec_info = self.get_spec_by_index(spec_id)
+            spec_info = self.get_spec_by_id(spec["spec_id"])
             class_spec_table.append(spec_info)
         return class_spec_table
 
@@ -582,16 +571,21 @@ class Caller:
         leaderboard = self.parser.parse_keyrun_leaderboard_json(response.json())
         return leaderboard
 
-    def get_current_period(self, region):
-        """Gets current m+ period for region."""
+    def get_period_ids(self, region: str) -> List[int]:
+        """Gets list of m+ period ids for region."""
         url_factory = UrlFactory(self.access_token, region)
         period_index_url = url_factory.get_timeperiod_index_url()
         response = requests.get(period_index_url)
         periods = self.parser.parse_timeperiod_index_json(response.json())
+        return periods
+
+    def get_current_period(self, region: str) -> int:
+        """Gets current m+ period for region."""
+        periods = self.get_period_ids(region=region)
         current_period = max(periods)
         return current_period
 
-    def get_period_startend(self, region, period):
+    def get_period_startend(self, region: str, period: int) -> Tuple[int, int]:
         """Gets start and end timestamp for period."""
         url_factory = UrlFactory(self.access_token, region)
         period_url = url_factory.get_timeperiod_url(period)
@@ -599,18 +593,44 @@ class Caller:
         start, end = self.parser.parse_timeperiod_json(response.json())
         return start, end
 
-    def get_dungeons(self):
-        """Gets list of dungeon ids."""
+    def get_dungeons(self) -> List[dict]:
+        """Gets list of dungeon ids.
+
+        Warning: only returns data for current expansion.
+        """
         url_factory = UrlFactory(self.access_token, region="us")
         dungeon_index_url = url_factory.get_dungeon_index_url()
         response = requests.get(dungeon_index_url)
         dungeons = self.parser.parse_dungeon_index_json(response.json())
         return dungeons
 
-    def get_connected_realms(self, region):
-        """Gets list of connected realms (realm clusters)."""
+    def get_connected_realm_ids(self, region: str) -> List[int]:
+        """Gets list of connected realm ids for region."""
         url_factory = UrlFactory(self.access_token, region=region)
         realm_index_url = url_factory.get_connected_realm_index_url()
         response = requests.get(realm_index_url)
-        cluster_ids = self.parser.parse_connected_realm_index_json(response.json())
-        return cluster_ids
+        realm_ids = self.parser.parse_connected_realm_index_json(response.json())
+        return realm_ids
+
+    def get_connected_realm(self, region: str, realm_id: int) -> List[dict]:
+        """Gets info for a shard given its id and region."""
+        url_factory = UrlFactory(self.access_token, region=region)
+        realm_url = url_factory.get_connected_realm_url(realm_id=realm_id)
+        response = requests.get(realm_url)
+        # "connected" realms correspond to a cluster of realms
+        # that used to be stand-alone but got merged; some "connected"
+        # realms only contain 1 realm (never merged)
+        # Anyway, this is what the line below returns a list
+        realms_in_cluster = self.parser.parse_connected_realm_json(response.json())
+        return realms_in_cluster
+
+    def get_connected_realms(self, region: str) -> List[dict]:
+        """Gets full info for all of region's shards."""
+        cluster_ids = self.get_connected_realm_ids(region="us")
+        realms = []
+        for cluster_id in cluster_ids:
+            realms_in_cluster = self.get_connected_realm(
+                region=region, realm_id=cluster_id
+            )
+            realms.extend(realms_in_cluster)
+        return realms
