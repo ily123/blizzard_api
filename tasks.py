@@ -26,14 +26,14 @@ def get_access_token():
 def get_leaderboard_urls(region, period, dungeon):
     """Constructs dungeon leaderboard call URL for every realm in region."""
     caller = blizzard_api.Caller()
-    realms = caller.get_connected_realms(region=region)
+    realm_ids = caller.get_connected_realm_ids(region=region)
     url_factory = blizzard_api.UrlFactory(
         region=region, access_token=get_access_token()
     )
     realm_urls = []
-    for realm in realms:
+    for realm_id in realm_ids:
         url = url_factory.get_mythic_plus_leaderboard_url(
-            dungeon_id=dungeon, realm_id=realm, period=period
+            dungeon_id=dungeon, realm_id=realm_id, period=period
         )
         realm_urls.append(url)
     return realm_urls
@@ -83,18 +83,17 @@ def multi_threaded_call(urls):
 
 def parse_responses(responses):
     """Parses leaderboard jsons and aggs them into a single list of key runs."""
-    parser = blizzard_api.ResponseParser()
 
     runs = []
     rosters = []
 
     for resp in responses:
         try:
-            leaderboard = parser.parse_keyrun_leaderboard_json(resp.json())
+            leaderboard = blizzard_api.KeyRunLeaderboard(resp.json())
             runs.extend(leaderboard.get_runs_as_tuple_list())
             rosters.extend(leaderboard.get_rosters_as_tuple_list())
         except JSONDecodeError as e:
-            print("Leaderboard parse error: there was a JSONDecodeError ", e)
+            print("Leaderboard parse error: JSONDecodeError ", e)
         except KeyError as e:
             print("Leaderboard parse error: KeyError", e)
     # the same run appears in multiple leaderboards, so uniq the data
@@ -149,7 +148,7 @@ def main_method(period=None):
         print("getting DB data: ", time.time() - t0)
         for dungeon in dungeons:
             t0 = time.time()
-            responses = get_data(region=region, period=period, dungeon=dungeon)
+            responses = get_data(region=region, period=period, dungeon=dungeon["id"])
             runs, rosters = parse_responses(responses)
             print("API calls: ", time.time() - t0)
             print("Total runs: ", len(runs))

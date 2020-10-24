@@ -4,7 +4,7 @@ Blizzard/WoW API docs:
 https://develop.battle.net/documentation/world-of-warcraft/game-data-apis
 """
 import re
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Type
 
 import requests
 
@@ -49,7 +49,7 @@ class UrlFactory:
 
     @staticmethod
     def _get_host(region: str) -> str:
-        """Constucts regional host name component of the request call."""
+        """Constructs regional host name component of the request call."""
         if region == "cn":
             host = "gateway.battlenet.com.cn"
         else:
@@ -141,27 +141,28 @@ class UrlFactory:
 
 
 class ResponseParser:
-    """Parses Blizzard response Json."""
+    """Namespaces json parser functions for Blizzard API responses."""
 
-    def __init__(self, json=None):
-        """Inits with rolled-up json string."""
-        if json:
-            self.json = json
+    # this could probably be a module with module-level functions
+    # instead of a class
 
-    def parse_timeperiod_index_json(self, json: dict) -> List[int]:
+    @staticmethod
+    def parse_timeperiod_index_json(json: dict) -> List[int]:
         """Retrieves time period ids from periond index call json."""
         period_ids = []
         for period in json["periods"]:
             period_ids.append(period["id"])
         return period_ids
 
-    def parse_timeperiod_json(self, json: dict) -> Tuple[int, int]:
+    @staticmethod
+    def parse_timeperiod_json(json: dict) -> Tuple[int, int]:
         """Retrieves start and end timestamps from period json."""
         start = json["start_timestamp"]
         end = json["end_timestamp"]
         return start, end
 
-    def parse_connected_realm_index_json(self, json: dict) -> List[int]:
+    @staticmethod
+    def parse_connected_realm_index_json(json: dict) -> List[int]:
         """Unrolls json from a connected realm index call."""
         # the json supplies list of url calls to individual realms
         # we just want the realm ids contained in the urls
@@ -171,19 +172,14 @@ class ResponseParser:
             realm_ids.append(_get_realm_id_from_url(realm_url))
         return realm_ids
 
-    def parse_connected_realm_json(self, json) -> List[dict]:
+    @staticmethod
+    def parse_connected_realm_json(json) -> List[dict]:
         """Parses connected realm call json output."""
         realms_in_cluster = []
         for realm_json in json["realms"]:
             realm = RealmRecord(realm_json)
             realms_in_cluster.append(realm.get_as_dict())
         return realms_in_cluster
-
-    @staticmethod
-    def parse_keyrun_leaderboard_json(json):
-        """Parses the key run leaderboard of the json."""
-        leaderboard = KeyRunLeaderboard(json)
-        return leaderboard
 
     @staticmethod
     def parse_spec_index_json(json: dict) -> List[dict]:
@@ -561,14 +557,16 @@ class Caller:
             class_spec_table.append(spec_info)
         return class_spec_table
 
-    def get_leaderboard(self, region, realm, dungeon, period):
+    def get_leaderboard(
+        self, region: str, realm: int, dungeon: int, period: int
+    ) -> Type[KeyRunLeaderboard]:
         """Gets leaderboard for specified region/realm/dungeon/period."""
         url_factory = UrlFactory(self.access_token, region)
         call_url = url_factory.get_mythic_plus_leaderboard_url(
             dungeon_id=dungeon, realm_id=realm, period=period
         )
         response = self._send_request(call_url)
-        leaderboard = self.parser.parse_keyrun_leaderboard_json(response.json())
+        leaderboard = KeyRunLeaderboard(response.json())
         return leaderboard
 
     def get_period_ids(self, region: str) -> List[int]:
