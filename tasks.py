@@ -8,6 +8,7 @@ from typing import Tuple
 
 import requests
 
+import blizz_parser
 import blizzard_api
 import blizzard_credentials
 import mplusdb
@@ -89,7 +90,7 @@ def parse_responses(responses):
 
     for resp in responses:
         try:
-            leaderboard = blizzard_api.KeyRunLeaderboard(resp.json())
+            leaderboard = blizz_parser.KeyRunLeaderboard(resp.json())
             runs.extend(leaderboard.get_runs_as_tuple_list())
             rosters.extend(leaderboard.get_rosters_as_tuple_list())
         except JSONDecodeError as e:

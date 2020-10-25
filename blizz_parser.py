@@ -1,6 +1,6 @@
 """Functions to parse Blizzard json strings.
 
-Usage:
+Usage example:
 
     import parser
 

@@ -2,7 +2,22 @@
 
 Blizzard/WoW API docs:
 https://develop.battle.net/documentation/world-of-warcraft/game-data-apis
+
+
+Usage example:
+
+    import blizzard_api
+
+    batch_caller = blizzard_api.BatchCaller(api_token)
+    batch_caller.region = "us"
+    batch_caller.dungeon = 244
+    batch_caller.period = 744
+    batch_caller.workers = 5
+    runs, rosters = batch_caller.get_data()
+
 """
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from json import JSONDecodeError
 from typing import List, Optional, Tuple, Type
 
 import requests
@@ -257,3 +272,102 @@ class Caller:
             )
             realms.extend(realms_in_cluster)
         return realms
+
+
+class BatchCaller(Caller):
+    """Collects region-wider leaderboard for a dungeon using parallel calls."""
+
+    def __init__(self, access_token: str) -> None:
+        """Inits with access token."""
+        super().__init__(access_token)
+        # these need to be set using normal attribute syntax
+        # (I don't want to mess with setters - just get this done)
+        self.region = None
+        self.dungeon = None
+        self.period = None
+        self.workers = 2
+
+    def _get_leaderboard_urls(self):
+        """Constructs dungeon leaderboard call URL for every realm in region."""
+        realm_ids = self.get_connected_realm_ids(region=self.region)
+        url_factory = UrlFactory(region=self.region, access_token=self.access_token)
+        realm_urls = []
+        for realm_id in realm_ids:
+            url = url_factory.get_mythic_plus_leaderboard_url(
+                dungeon_id=self.dungeon, realm_id=realm_id, period=self.period
+            )
+            realm_urls.append(url)
+        return realm_urls
+
+    @staticmethod
+    def parse_responses(responses) -> Tuple[List[tuple], List[tuple]]:
+        """Parses jons and aggs runs and rosters into a list of tuples."""
+        runs = []
+        rosters = []
+        for resp in responses:
+            try:
+                leaderboard = blizz_parser.KeyRunLeaderboard(resp.json())
+                runs.extend(leaderboard.get_runs_as_tuple_list())
+                rosters.extend(leaderboard.get_rosters_as_tuple_list())
+            except JSONDecodeError as error:
+                print("Leaderboard parse error: JSONDecodeError ", error)
+            except KeyError as error:
+                print("Leaderboard parse error: KeyError", error)
+        # the same run can appear on multiple realm leaderboards, so uniq the data
+        runs = list(set(runs))
+        rosters = list(set(rosters))
+        return runs, rosters
+
+    def get_data(self) -> Tuple[List[tuple], List[tuple]]:
+        """Collects run data from all regional realms in parallel.
+
+        Returns
+        -------
+            runs
+                list of runs as list of tuples
+            rosters
+                list of player characters as list of tuples
+        """
+        urls = self._get_leaderboard_urls()
+        responses = _multi_threaded_call(urls, self.workers)
+        runs, rosters = self.parse_responses(responses)
+        return runs, rosters
+
+
+def _multi_threaded_call(urls, num_threads):
+    """Sends multiple calls to the API at once."""
+
+    # chunk the urls into pieces with 10 urls each
+    url_chunks = _divide_chunks(urls, num_threads)
+
+    threads = []
+    with ThreadPoolExecutor(max_workers=num_threads) as executor:
+        for chunk in url_chunks:
+            threads.append(executor.submit(_api_call, chunk))
+    responses = []
+    for task in as_completed(threads):
+        responses.extend(task.result())
+    return responses
+
+
+def _api_call(urls):
+    """Calls urls in a requests session."""
+    responses = []
+    with requests.Session() as session:
+        for url in urls:
+            try:
+                response = session.get(url, timeout=5)
+                response.raise_for_status()
+            # this exception is lazy, but we call this script hundreds of times per week
+            # so if a request fails, we'll get the data next time around
+            except Exception:
+                print("This requests failed:", url)
+                continue
+            responses.append(response)
+    return responses
+
+
+def _divide_chunks(list_, n):
+    """Divide list into chunks of size n."""
+    for i in range(0, len(list_), n):
+        yield list_[i : i + n]
