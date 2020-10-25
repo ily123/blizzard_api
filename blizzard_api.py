@@ -18,7 +18,7 @@ Usage example:
 """
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from json import JSONDecodeError
-from typing import List, Optional, Tuple, Type
+from typing import Generator, List, Optional, Tuple, Type
 
 import requests
 
@@ -158,7 +158,7 @@ class Caller:
             )
 
     @staticmethod
-    def _send_request(call_url):
+    def _send_request(call_url) -> requests.Response:
         """Sends URL request to Blizzard API."""
         response = requests.get(call_url)
         response.raise_for_status()  # catches 4xx and 5xx codes
@@ -275,19 +275,34 @@ class Caller:
 
 
 class BatchCaller(Caller):
-    """Collects region-wider leaderboard for a dungeon using parallel calls."""
+    """Collects region-wider leaderboard for a dungeon using parallel calls.
+
+    Attributes needs to be set after object is created.
+
+    Attributes
+    ----------
+        region : str
+            region one of "us", "eu", "kr", "tw"
+        dungeon : int
+            a valid dungeon id
+        period : int
+            a valid period id
+        workers : int
+            number of threads to spawn (ex: 5)
+    """
 
     def __init__(self, access_token: str) -> None:
         """Inits with access token."""
         super().__init__(access_token)
         # these need to be set using normal attribute syntax
         # (I don't want to mess with setters - just get this done)
-        self.region = None
-        self.dungeon = None
-        self.period = None
+        # these are just some valid place holders
+        self.region = "us"
+        self.dungeon = 244
+        self.period = 733
         self.workers = 2
 
-    def _get_leaderboard_urls(self):
+    def _get_leaderboard_urls(self) -> List[str]:
         """Constructs dungeon leaderboard call URL for every realm in region."""
         realm_ids = self.get_connected_realm_ids(region=self.region)
         url_factory = UrlFactory(region=self.region, access_token=self.access_token)
@@ -300,7 +315,7 @@ class BatchCaller(Caller):
         return realm_urls
 
     @staticmethod
-    def parse_responses(responses) -> Tuple[List[tuple], List[tuple]]:
+    def _parse_responses(responses) -> Tuple[List[tuple], List[tuple]]:
         """Parses jons and aggs runs and rosters into a list of tuples."""
         runs = []
         rosters = []
@@ -334,7 +349,7 @@ class BatchCaller(Caller):
         return runs, rosters
 
 
-def _multi_threaded_call(urls, num_threads):
+def _multi_threaded_call(urls, num_threads) -> List[requests.Response]:
     """Sends multiple calls to the API at once."""
 
     # chunk the urls into pieces with 10 urls each
@@ -350,7 +365,7 @@ def _multi_threaded_call(urls, num_threads):
     return responses
 
 
-def _api_call(urls):
+def _api_call(urls) -> List[requests.Response]:
     """Calls urls in a requests session."""
     responses = []
     with requests.Session() as session:
@@ -360,14 +375,14 @@ def _api_call(urls):
                 response.raise_for_status()
             # this exception is lazy, but we call this script hundreds of times per week
             # so if a request fails, we'll get the data next time around
-            except Exception:
-                print("This requests failed:", url)
+            except Exception as error:
+                print("Request [%s] failed with error [%s]" % (url, error))
                 continue
             responses.append(response)
     return responses
 
 
-def _divide_chunks(list_, n):
+def _divide_chunks(list_, n) -> Generator:
     """Divide list into chunks of size n."""
     for i in range(0, len(list_), n):
         yield list_[i : i + n]
