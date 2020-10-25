@@ -274,13 +274,15 @@ class Caller:
         return realms
 
 
-class BatchCaller(Caller):
+class BatchCaller:
     """Collects region-wider leaderboard for a dungeon using parallel calls.
 
     Attributes needs to be set after object is created.
 
     Attributes
     ----------
+        access_token : str
+            valid API access token
         region : str
             region one of "us", "eu", "kr", "tw"
         dungeon : int
@@ -293,7 +295,7 @@ class BatchCaller(Caller):
 
     def __init__(self, access_token: str) -> None:
         """Inits with access token."""
-        super().__init__(access_token)
+        self.access_token = access_token
         # these need to be set using normal attribute syntax
         # (I don't want to mess with setters - just get this done)
         # these are just some valid place holders
@@ -304,7 +306,8 @@ class BatchCaller(Caller):
 
     def _get_leaderboard_urls(self) -> List[str]:
         """Constructs dungeon leaderboard call URL for every realm in region."""
-        realm_ids = self.get_connected_realm_ids(region=self.region)
+        caller = Caller(self.access_token)
+        realm_ids = caller.get_connected_realm_ids(region=self.region)
         url_factory = UrlFactory(region=self.region, access_token=self.access_token)
         realm_urls = []
         for realm_id in realm_ids:
@@ -334,7 +337,7 @@ class BatchCaller(Caller):
         return runs, rosters
 
     def get_data(self) -> Tuple[List[tuple], List[tuple]]:
-        """Collects run data from all regional realms in parallel.
+        """Collects run leaderboard data from all regional realms in parallel.
 
         Returns
         -------
@@ -345,7 +348,7 @@ class BatchCaller(Caller):
         """
         urls = self._get_leaderboard_urls()
         responses = _multi_threaded_call(urls, self.workers)
-        runs, rosters = self.parse_responses(responses)
+        runs, rosters = self._parse_responses(responses)
         return runs, rosters
 
 
@@ -371,7 +374,7 @@ def _api_call(urls) -> List[requests.Response]:
     with requests.Session() as session:
         for url in urls:
             try:
-                response = session.get(url, timeout=5)
+                response = session.get(url, timeout=2)
                 response.raise_for_status()
             # this exception is lazy, but we call this script hundreds of times per week
             # so if a request fails, we'll get the data next time around
