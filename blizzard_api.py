@@ -3,27 +3,18 @@
 Blizzard/WoW API docs:
 https://develop.battle.net/documentation/world-of-warcraft/game-data-apis
 """
-import re
 from typing import List, Optional, Tuple, Type
 
 import requests
 
 import blizz_parser
 import blizzard_credentials
-import utils
-from utils import Utils
-
-SPEC_UTILS = utils.Specs()
-SCORER = utils.Scorer()
 
 
 def _isvalid(region: str) -> bool:
     """Checks if region string is valid."""
     valid_regions = ["us", "eu", "kr", "tw", "cn"]
-    if region.lower() in valid_regions:
-        return True
-    else:
-        return False
+    return region.lower() in valid_regions
 
 
 class UrlFactory:
@@ -193,7 +184,7 @@ class Caller:
 
     def get_leaderboard(
         self, region: str, realm: int, dungeon: int, period: int
-    ) -> Type[KeyRunLeaderboard]:
+    ) -> Type[blizz_parser.KeyRunLeaderboard]:
         """Gets leaderboard for specified region/realm/dungeon/period."""
         url_factory = UrlFactory(self.access_token, region)
         call_url = url_factory.get_mythic_plus_leaderboard_url(

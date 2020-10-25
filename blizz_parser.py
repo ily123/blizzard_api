@@ -8,13 +8,13 @@ Usage:
     leaderboard = parser.parse_mplus_leaderboard(response.json())
 """
 import re
+from typing import List, Tuple
 
 import utils
 from utils import Utils
 
 SPEC_UTILS = utils.Specs()
 SCORER = utils.Scorer()
-from typing import List, Tuple
 
 
 def _get_realm_id_from_url(connected_realm_url: str) -> int:
@@ -140,21 +140,12 @@ class RealmRecord:
 class KeyRunLeaderboard:
     """Container/parser for Key Run leaderboard."""
 
-    __sql_value_template = (
-        "("
-        "{run_id},{dungeon},{key_level},{period},"
-        "{completed_timestamp},{duration_in_ms},"
-        "{faction},{region}"
-        ")"
-    )
-    __destination_table = "run"
-
-    def __init__(self, json):
+    def __init__(self, json) -> None:
         self.json = json
-        self.get_meta_features()
-        self.keyruns = self.parse_key_runs()
+        self._parse_meta_features()
+        self.keyruns = self._parse_key_runs()
 
-    def get_meta_features(self):
+    def _parse_meta_features(self) -> None:
         """Extracts leaderboard regon-level data."""
         self.api_call_url = self.json["_links"]["self"]["href"]
         self.period = self.json["period"]
@@ -163,22 +154,7 @@ class KeyRunLeaderboard:
         region_slug = Utils().get_region_from_url(self.api_call_url)
         self.region = Utils().encode_region(region_slug)
 
-    def __generate_sql_row_value(self, keyrun):
-        """Crates VALUE component of SQL insert queryi for a run entry."""
-        raise ("I broke this function. Delete it.")
-        value = self.__sql_value_template.format(
-            run_id=keyrun.run_id,
-            dungeon=self.dungeon,
-            key_level=keyrun.keystone_level,
-            period=self.period,
-            completed_timestamp=keyrun.completed_timestamp,
-            duration_in_ms=keyrun.duration_in_ms,
-            faction=keyrun.faction,
-            region=self.region,
-        )
-        return value
-
-    def parse_key_runs(self):
+    def _parse_key_runs(self) -> List[KeyRun]:
         """Unrolls runs/groups component into list of key run records.
 
         Parses the 'leading_groups' component of the json, which
@@ -190,11 +166,11 @@ class KeyRunLeaderboard:
             return []
         keyruns = []
         for keyrun_json in self.json["leading_groups"]:
-            keyrun = KeyRun(keyrun_json, self.region)
+            keyrun = KeyRun(keyrun_json, self.region, self.dungeon)
             keyruns.append(keyrun)
         return keyruns
 
-    def get_runs_as_tuple_list(self):
+    def get_runs_as_tuple_list(self) -> List[tuple]:  # annotation is tricky here
         """Return leaderboard as list of tuples, where each tuple is a run.
 
         This list is meant to be fed to an SQL connector for a batch insert.
@@ -212,26 +188,22 @@ class KeyRunLeaderboard:
                 run.duration_in_ms,
                 run.faction,
                 self.region,
-                SCORER.get_score(run.duration_in_ms, self.dungeon, run.keystone_level),
-                self.istimed(run.duration_in_ms),
+                run.score,
+                run.istimed,
                 run.composition,
             )
             runs.append(tpl)
         return runs
 
-    def istimed(self, duration_in_ms):
-        """Checks if the run was timed."""
-        return Utils.istimed(dungeon=self.dungeon, duration=duration_in_ms)
-
-    def get_rosters_as_tuple_list(self):
+    def get_rosters_as_tuple_list(self) -> List[tuple]:
         """Returns roster data collated as list of tuples."""
         rosters = []
         for run in self.keyruns:
-            tpl = run.get_members_as_tuple_list()
+            tpl = run.get_roster_as_tuple_list()
             rosters.extend(tpl)
         return rosters
 
-    def get_run_comps_as_vector_list(self):
+    def get_run_comps_as_vector_list(self) -> List[tuple]:
         """Return roster class/spec composition as list of lists."""
         comps = []
         for run in self.keyruns:
@@ -239,86 +211,46 @@ class KeyRunLeaderboard:
             comps.append(comp)
         return comps
 
-    def concat_runs_for_sql_insert(self):
-        """Joins leaderboard runs into a single list.
-
-        Each item in the list is a string formatted for an SQL insert.
-
-        Warning: Roster data is handled separately:
-            see concat_roster_for_sql_insert()
-        """
-        # low-level roster data is handled separetly because
-        # it's got its own table in the DB
-        values = []
-        for keyrun in self.keyruns:
-            value_string = self.__generate_sql_row_value(keyrun)
-            values.append(value_string)
-        return values
-
-    def concat_rosters_for_sql_insert(self):
-        """Joins roster data into a single list.
-
-        Each item in the list is a character string
-        formatted for an SQL insert.
-
-        Warning: high-level key data is is handled separately:
-            see concat_runs_for_sql_insert()
-        """
-        sql_template = (
-            "("
-            '{run_id},{character_id},"{character_name}",'
-            "{character_spec},{character_realm}"
-            ")"
-        )
-        rosters = []
-        for keyrun in self.keyruns:
-            for member in keyrun.roster:
-                member_string = sql_template.format(
-                    run_id=keyrun.run_id,
-                    character_id=member.id_,
-                    character_name=member.name,
-                    character_spec=member.spec,
-                    character_realm=member.vanity_realm_id,
-                )
-                rosters.append(member_string)
-        return rosters
-
 
 class KeyRun:
     """Container/parser for individual m+ run."""
 
-    def __init__(self, key_run_json, region):
+    def __init__(self, key_run_json, region, dungeon) -> None:
         """Inits record with key run json."""
         self.key_run_json = key_run_json
         self.region = region
-        self.parse_json()
+        self.dungeon = dungeon
+        self._parse_json()
+        self.score = self._get_score()
+        self.istimed = self._istimed()
 
-    def parse_json(self):
+    def _parse_json(self) -> None:
         """Parses the key run json string."""
         self.duration_in_ms = self.key_run_json["duration"]
         self.completed_timestamp = self.key_run_json["completed_timestamp"]
         self.keystone_level = self.key_run_json["keystone_level"]
-        self.roster = self.parse_roster(self.key_run_json["members"])
+        self.roster = self._parse_roster(self.key_run_json["members"])
         faction = self.roster[0].faction.lower()
         self.faction = 0 if "alliance" in faction else 1
-        self.run_id = self.generate_id(self.region)
-        self.composition = self.get_comp()
+        self.run_id = self._generate_id()
+        self.composition = self._get_comp()
 
-    def get_comp(self):
+    def _get_comp(self) -> str:
         """Generates 5-letter signature for roster spec composition."""
         sig = []
         for member in self.roster:
             sig.append(SPEC_UTILS.get_shorthand(member.spec))
         return "".join(sorted(sig))
 
-    def parse_roster(self, members):
+    @staticmethod
+    def _parse_roster(members) -> List[RosterMember]:
         """Extracts player info as a list of RosterMember objects."""
         roster = []
         for member in members:
             roster.append(RosterMember(member))
         return roster
 
-    def generate_id(self, region):
+    def _generate_id(self) -> int:
         """Creates a unique record id for the run."""
 
         # This will serve as the PRIMARY KEY in the MySQL table. Uniqueness is
@@ -329,13 +261,23 @@ class KeyRun:
 
         timestamp = str(self.completed_timestamp)[1:-4]
         smallest_member_id = min([member.id_ for member in self.roster])
-        run_id = "%s%s%s" % (timestamp, region, str(smallest_member_id).zfill(10))
-        run_id = int(run_id)
+        run_id = int(
+            "%s%s%s" % (timestamp, self.region, str(smallest_member_id).zfill(10))
+        )
         if run_id >= 18446744073709551615:  # max 64 bit int
             raise ValueError("Oh oh. The run id exceeds 64-bit int limit.")
-        return int(run_id)
+        return run_id
 
-    def get_members_as_tuple_list(self):
+    def _get_score(self) -> float:
+        """Calculate points awarded by run."""
+        score = SCORER.get_score(self.duration_in_ms, self.dungeon, self.keystone_level)
+        return score
+
+    def _istimed(self) -> bool:
+        """Checks if the run was timed."""
+        return Utils.istimed(dungeon=self.dungeon, duration=self.duration_in_ms)
+
+    def get_roster_as_tuple_list(self) -> List[tuple]:
         """Returns roster members as list of tuples."""
         members = []
         for member in self.roster:
@@ -349,7 +291,7 @@ class KeyRun:
             members.append(member_tuple)
         return members
 
-    def get_composition_vector(self):
+    def get_composition_vector(self) -> tuple:
         """Construct one-hot style vector to repsent spec composition."""
         specs = Utils().get_all_spec_ids()
         comp_vector = [0 for i in range(len(specs))]
@@ -363,11 +305,13 @@ class KeyRun:
 class RosterMember:
     """Container for player character from a key run."""
 
-    def __init__(self, profile):
-        """Inits with profile element of the 'members' json."""
-        self.parse_profile(profile)
+    # a class is an overkill for this? should be a method that produces a NamedTuple
 
-    def parse_profile(self, profile):
+    def __init__(self, profile) -> None:
+        """Inits with profile element of the 'members' json."""
+        self._parse_profile(profile)
+
+    def _parse_profile(self, profile) -> None:
         """Parses character features (name, realm, etc)."""
         self.name = profile["profile"]["name"]
         self.id_ = profile["profile"]["id"]
