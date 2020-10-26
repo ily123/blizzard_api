@@ -77,22 +77,6 @@ class MplusDatabase(object):
         self.credentials["host"] = parser["DATABASE"]["host"]
         self.credentials["database"] = "keyruns"
 
-    @staticmethod
-    def parse_config_file(file_path):
-        """Parses config file."""
-        credentials = {}
-        with open(file_path, "r") as config_file:
-            for line in config_file:
-                content = line.split()[1]
-                if "user" in line:
-                    credentials["user"] = content
-                if "password" in line:
-                    credentials["password"] = content
-                if "host" in line:
-                    credentials["host"] = content
-        credentials["database"] = "keyruns"
-        return credentials
-
     def connect(self):
         """Connects to the database.
 
@@ -103,19 +87,6 @@ class MplusDatabase(object):
         """
         conn = mysql.connector.connect(**self.credentials)
         return conn
-
-    def execute_insert_query(self, query):
-        """Execute insert or update query aganist the database."""
-        connection = self.connect()
-        cursor = connection.cursor()
-        try:
-            cursor.execute(query)
-            connection.commit()
-        except Exception as e:
-            raise Exception("Problem inserting data: ", str(e))
-        finally:
-            cursor.close()
-            connection.close()
 
     def insert(self, table, data):
         """Batch-inserts list of rows into database.
@@ -138,21 +109,8 @@ class MplusDatabase(object):
             # executemany supposedly batches data into a single query
             cursor.executemany(query, data)
             connection.commit()
-        except:
-            raise Exception("Problem with inserting data into MDB.")
-        finally:
-            cursor.close()
-            connection.close()
-
-    def raw_batch_insert(self, query, data):
-        """Batch-inserts list of data according to provided query."""
-        connection = self.connect()
-        cursor = connection.cursor()
-        try:
-            cursor.executemany(query, data)
-            connection.commit()
-        except:
-            raise Exception("Problem with inserting data into MDB.")
+        except Exception as error:
+            raise Exception("Problem with inserting data into MDB: [%s]" % error)
         finally:
             cursor.close()
             connection.close()

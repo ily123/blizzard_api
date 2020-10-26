@@ -81,3 +81,11 @@ def get_data(period=None):
                 % (region, period, dungeon, len(novel_runs))
             )
     print("END CYCLE")
+
+
+def _update_summary():
+    """Updates summary tables in MDB."""
+
+
+def _export_summary():
+    """Exports summary tables in the MDB as a sqlite file."""
