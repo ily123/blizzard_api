@@ -6,9 +6,9 @@ https://develop.battle.net/documentation/world-of-warcraft/game-data-apis
 
 Usage example:
 
-    import blizzard_api
+    import blizz_api
 
-    batch_caller = blizzard_api.BatchCaller(api_token)
+    batch_caller = blizz_api.BatchCaller(api_token)
     batch_caller.region = "us"
     batch_caller.dungeon = 244
     batch_caller.period = 744
@@ -22,8 +22,8 @@ from typing import Generator, List, Optional, Tuple, Type
 
 import requests
 
+import blizz_credentials
 import blizz_parser
-import blizzard_credentials
 
 
 def _isvalid(region: str) -> bool:
@@ -148,7 +148,7 @@ class Caller:
     def __init__(self, access_token: Optional[str] = None) -> None:
         """Inits wtih access token. If token not given, tries to get one."""
         if not access_token:
-            auth = blizzard_credentials.Credentials(self._default_access_token_fp)
+            auth = blizz_credentials.Credentials(self._default_access_token_fp)
             access_token = auth.access_token
         self.access_token = access_token
         if not self.access_token:
@@ -319,7 +319,7 @@ class BatchCaller:
 
     @staticmethod
     def _parse_responses(responses) -> Tuple[List[tuple], List[tuple]]:
-        """Parses jons and aggs runs and rosters into a list of tuples."""
+        """Parses jons and aggs runs and rosters into a list of unique tuples."""
         runs = []
         rosters = []
         for resp in responses:

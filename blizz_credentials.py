@@ -3,16 +3,17 @@
     Usage
     -----
 
-    import blizzard_credentials
+    import blizz_credentials
 
     fp = "client_info.ini"
-    auth = blizzard_credentials.Credentials(fp)
+    auth = blizz_credentials.Credentials(fp)
     api_token = auth.access_token
 
 """
 
 
 import configparser
+import os.path
 import time
 from typing import Dict
 
@@ -48,7 +49,6 @@ class Credentials:
     def _parse_client_id_and_secret(auth_tokens_fp: str) -> Dict[str, str]:
         """Loads Blizzard OAuth client id and secret from a .ini file.
 
-
         Parameters
         ----------
         auth_tokens_fp : str
@@ -59,9 +59,10 @@ class Credentials:
         credentials : dict
             dictionary containing client id and secret
         """
-
+        if not os.path.exists(auth_tokens_fp):
+            raise FileNotFoundError("Config file not found '%s'" % auth_tokens_fp)
         parser = configparser.ConfigParser()
-        parser.read("config/blizzard_api_access.ini")
+        parser.read(auth_tokens_fp)
         credentials = {
             "client_id": parser["BLIZZARD"]["client_id"],
             "client_secret": parser["BLIZZARD"]["client_secret"],
