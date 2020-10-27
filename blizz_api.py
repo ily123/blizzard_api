@@ -374,7 +374,7 @@ def _api_call(urls) -> List[requests.Response]:
     with requests.Session() as session:
         for url in urls:
             try:
-                response = session.get(url, timeout=2)
+                response = session.get(url, timeout=5)
                 response.raise_for_status()
             # this exception is lazy, but we call this script hundreds of times per week
             # so if a request fails, we'll get the data next time around

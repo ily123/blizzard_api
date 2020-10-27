@@ -1,5 +1,6 @@
 """Module for uploading data to the M+ MySQL database."""
 import configparser
+from typing import List, Optional
 
 import mysql.connector
 import pandas as pd
@@ -115,6 +116,23 @@ class MplusDatabase(object):
             cursor.close()
             connection.close()
 
+    def send_query_to_mdb(self, query, isfetch=False) -> Optional[List[tuple]]:
+        """Sends non-insert query to MDB."""
+        result = None
+        conn = self.connect()
+        try:
+            cursor = conn.cursor()
+            cursor.execute("use keyruns")
+            cursor.execute(query)
+            if isfetch:
+                result = cursor.fetchall()
+            conn.commit()
+        except Exception as error:
+            print("ERROR CONNECTING TO MDB: ", error)
+        finally:
+            conn.close()
+        return result
+
     def get_table_fields(self, table):
         """Returns fieds in table, in correct order.
 
@@ -155,3 +173,57 @@ class MplusDatabase(object):
             cursor.close()
             connection.close()
         return pd.DataFrame(data, columns=columns)
+
+    def pull_existing_run_ids(self, region: int, period: int) -> List[int]:
+        """Pulls id column from the 'run' table for specified period/region."""
+        query = "SELECT id FROM run WHERE region=%d and period=%d" % (region, period)
+        run_ids = self.send_query_to_mdb(query=query, isfetch=True)
+        run_ids = [int(item[0]) for item in run_ids]
+        return run_ids
+
+    def update_summary_spec_table(self, period_start, period_end) -> None:
+        """Updates 'summary_spec' table with runs from specified period band."""
+        # at some point, I need to make this method more flexible wrt period clause
+        update_query = """
+            INSERT INTO summary_spec
+            SELECT period, spec, level, count(level) as count
+            FROM run
+            INNER JOIN roster on run.id = roster.run_id
+            WHERE run.period BETWEEN %d AND %d
+            GROUP BY period, spec, level
+            ON DUPLICATE KEY UPDATE count=VALUES(count);
+        """
+        update_query = update_query % (period_start, period_end)
+        self.send_query_to_mdb(update_query)
+
+    def get_summary_spec_table_as_df(self) -> pd.DataFrame:
+        """Exports summary_spec table formatted for front-end.
+
+        The summary table is grouped by by spec/level/season."""
+        query = "SELECT * from summary_spec;"
+        data_ = self.send_query_to_mdb(query, isfetch=True)
+        data = pd.DataFrame(data_, columns=["period", "spec", "level", "count"])
+        data["season"] = "unknown"
+        data.loc[(data.period) >= 734 & (data.period <= 771), "season"] = "bfa4"
+        data.loc[data.period >= 772, "season"] = "bfa4_postpatch"
+        data_grouped = (
+            data[["season", "spec", "level", "count"]]
+            .groupby(["season", "spec", "level"])
+            .sum()
+        )
+        data_grouped.reset_index(inplace=True)
+        return data_grouped
+
+    def get_weekly_top500(self):
+        """Aggs 'period_rank' view by spec/period.
+
+        The view needs to be pre-configured.
+        """
+        query = """
+            SELECT period, dungeon, spec, count(spec) FROM period_rank
+            LEFT JOIN roster
+            ON period_rank.id = roster.run_id
+            GROUP BY period, dungeon, spec
+        """
+        data = self.send_query_to_mdb(query, isfetch=True)
+        return data

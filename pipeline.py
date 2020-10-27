@@ -6,34 +6,14 @@ Example usage:
     pipeline.get_runs() # scrapes *all* leaderboard endpoints, 15-30 mins
     pipeline.summarize() # goes into MDB and pushes *new* data into summary tables
 """
+import sqlite3
 import time
-from typing import List
+from typing import List, Optional
+
+import pandas as pd
 
 import blizz_api
 import mplusdb
-
-
-def pull_existing_run_ids(mdb, region_: str, period: int) -> List[int]:
-    """Pulls id column from the run table in the MDB."""
-    conn = mdb.connect()
-    region = {"us": 1, "eu": 3, "kr": 2, "tw": 4}[region_]
-
-    run_ids = []
-    try:
-        cursor = conn.cursor()
-        cursor.execute("use keyruns")
-        cursor.execute(
-            "SELECT id FROM run WHERE region=%s and period=%s" % (region, period)
-        )
-        run_ids = cursor.fetchall()
-        cursor.close()
-    except BaseException as error:
-        print("Problem fetching ids from MDB: ", str(error))
-    finally:
-        conn.close()
-    # format into list of ints
-    run_ids = [int(item[0]) for item in run_ids]
-    return run_ids
 
 
 def find_uniq(existing_ids, runs) -> List[tuple]:
@@ -45,7 +25,7 @@ def find_uniq(existing_ids, runs) -> List[tuple]:
 
 
 def get_data(period=None):
-    """Scrapes all of M+ leaderboards."""
+    """Scrapes all of M+ leaderboards and inserts new records into MDB."""
     caller = blizz_api.Caller()
     batch_caller = blizz_api.BatchCaller(caller.access_token)  # share the token
     batch_caller.workers = 5
@@ -53,16 +33,14 @@ def get_data(period=None):
     dungeons = caller.get_dungeons()
     dungeons = [d["id"] for d in dungeons]
     regions = ["us", "eu", "tw", "kr"]
-
+    region_int = {"us": 1, "eu": 3, "kr": 2, "tw": 4}
     mdb = mplusdb.MplusDatabase("config/db_config.ini")
-
-    print("START CYCLE:")  # airflow assigns timestamps
+    print("START CYCLE:")
     for region in regions:
         if not period:
             period = caller.get_current_period(region)
-        existing_run_ids = pull_existing_run_ids(
-            mdb, region, period
-        )  # what's in the DB
+        # peek at what's already present in the db for this period/region
+        existing_run_ids = mdb.pull_existing_run_ids(region_int[region], period)
         print("Retrieved existing run ids from MDB for [%s %s]" % (region, period))
         for dungeon in dungeons:
             # point batch caller toward region/period/dungeon endpoints
@@ -83,9 +61,87 @@ def get_data(period=None):
     print("END CYCLE")
 
 
-def _update_summary():
+def update_mdb_summary() -> None:
     """Updates summary tables in MDB."""
+    mdb = mplusdb.MplusDatabase("config/db_config.ini")
+    mdb.update_summary_spec_table(period_start=770, period_end=774)
 
 
-def _export_summary():
-    """Exports summary tables in the MDB as a sqlite file."""
+def export_mdb_summary() -> None:
+    """Exports summary tables in the MDB as sqlite file."""
+    mdb = mplusdb.MplusDatabase("config/db_config.ini")
+    # runs grouped by spec/level/season
+    summary_spec = mdb.get_summary_spec_table_as_df()
+    push_summary_spec_to_sqlite(summary_spec)
+
+    # summary counts of specs within top 500 for each dungeon for each period
+    weekly_top500_summary = mdb.get_weekly_top500()
+    push_weekly_top500_summary_to_sqlite(weekly_top500_summary)
+
+
+def update_export_summary() -> None:
+    """First updates, then exports MDB summary tables as sqlite file."""
+    update_mdb_summary()
+    export_mdb_summary()
+
+
+def connect_to_sqlite(db_file_path: str) -> sqlite3.Connection:
+    """Connects to the SQLite DB"""
+    conn = None
+    try:
+        conn = sqlite3.connect(db_file_path)
+    except Exception as error:
+        print("ERROR CONNECTING TO SQLITE: ", error)
+    return conn
+
+
+def push_summary_spec_to_sqlite(summary_spec: pd.DataFrame) -> None:
+    """Push season-delimited summary of runs data to SQLite db."""
+    conn = connect_to_sqlite("data/summary.sqlite")
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS main_summary_seasons")
+    cursor.execute(
+        """
+        CREATE TABLE main_summary_seasons (
+            season varchar NOT NULL,
+            spec integer NOT NULL,
+            level integer NOT NULL,
+            run_count integer NOT NULL
+        );
+        """
+    )
+    cursor.executemany(
+        """
+        INSERT INTO main_summary_seasons(season, spec, level, run_count)
+        VALUES(?,?,?,?)
+        """,
+        summary_spec.values,
+    )
+    conn.commit()
+    conn.close()
+
+
+def push_weekly_top500_summary_to_sqlite(weekly_top500_summary):
+    """Push weekly top 500 runs summary to SQLite db."""
+    conn = connect_to_sqlite("data/summary.sqlite")
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS weekly_summary")
+    cursor.execute(
+        """
+        CREATE TABLE weekly_summary (
+            period integer NOT NULL,
+            dungeon integer NOT NULL,
+            spec integer NOT NULL,
+            run_count integer NOT NULL
+        );
+        """
+    )
+    cursor.executemany(
+        """
+        INSERT INTO weekly_summary(period, dungeon, spec, run_count)
+        VALUES(?,?,?,?)
+        """,
+        weekly_top500_summary,
+    )
+    conn.commit()
+    conn.close()
