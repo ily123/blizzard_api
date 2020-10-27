@@ -68,21 +68,6 @@ CREATE TABLE `period` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Temporary view structure for view `period_rank`
---
-
-/*!50001 DROP VIEW IF EXISTS `period_rank`*/;
-SET @saved_cs_client     = @@character_set_client;
-/*!50503 SET character_set_client = utf8mb4 */;
-/*!50001 CREATE VIEW `period_rank` AS SELECT 
- 1 AS `id`,
- 1 AS `dungeon`,
- 1 AS `period`,
- 1 AS `score`,
- 1 AS `period_rank`*/;
-SET character_set_client = @saved_cs_client;
-
---
 -- Table structure for table `realm`
 --
 
