@@ -35,6 +35,8 @@ def get_data(period=None):
     regions = ["us", "eu", "tw", "kr"]
     region_int = {"us": 1, "eu": 3, "kr": 2, "tw": 4}
     mdb = mplusdb.MplusDatabase("config/db_config.ini")
+    t0 = time.time()
+    regions = ["tw"]
     print("START CYCLE:")
     for region in regions:
         if not period:
@@ -58,7 +60,7 @@ def get_data(period=None):
                 ("batch call success [%s %s %s]" + " inserted %d new runs into MDB")
                 % (region, period, dungeon, len(novel_runs))
             )
-    print("END CYCLE")
+    print("END CYCLE, exec time %d seconds" % (time.time() - t0))
 
 
 def update_mdb_summary() -> None:
@@ -73,7 +75,6 @@ def export_mdb_summary() -> None:
     # runs grouped by spec/level/season
     summary_spec = mdb.get_summary_spec_table_as_df()
     push_summary_spec_to_sqlite(summary_spec)
-
     # summary counts of specs within top 500 for each dungeon for each period
     weekly_top500_summary = mdb.get_weekly_top500()
     push_weekly_top500_summary_to_sqlite(weekly_top500_summary)
@@ -81,8 +82,15 @@ def export_mdb_summary() -> None:
 
 def update_export_summary() -> None:
     """First updates, then exports MDB summary tables as sqlite file."""
+    time_start = time.time()
+    print("Update/Export started.")
+    print("Updating summary_spec table....")
     update_mdb_summary()
+    print("...done")
+    print("Recalculating top 500 weekly view, then exporting...")
     export_mdb_summary()
+    print("...done")
+    print("Update/Export done in %d sec" % (time.time() - time_start))
 
 
 def connect_to_sqlite(db_file_path: str) -> sqlite3.Connection:
