@@ -36,7 +36,6 @@ def get_data(period=None):
     region_int = {"us": 1, "eu": 3, "kr": 2, "tw": 4}
     mdb = mplusdb.MplusDatabase("config/db_config.ini")
     t0 = time.time()
-    regions = ["tw"]
     print("START CYCLE:")
     for region in regions:
         if not period:
@@ -67,6 +66,7 @@ def update_mdb_summary() -> None:
     """Updates summary tables in MDB."""
     mdb = mplusdb.MplusDatabase("config/db_config.ini")
     mdb.update_summary_spec_table(period_start=770, period_end=774)
+    mdb.update_weekly_top500_table(period_start=773, period_end=773)
 
 
 def export_mdb_summary() -> None:
@@ -84,10 +84,10 @@ def update_export_summary() -> None:
     """First updates, then exports MDB summary tables as sqlite file."""
     time_start = time.time()
     print("Update/Export started.")
-    print("Updating summary_spec table....")
+    print("Updating summary_spec and period_rank table....")
     update_mdb_summary()
     print("...done")
-    print("Recalculating top 500 weekly view, then exporting...")
+    print("Collecting data and exporting to sqlite...")
     export_mdb_summary()
     print("...done")
     print("Update/Export done in %d sec" % (time.time() - time_start))
@@ -138,7 +138,6 @@ def push_weekly_top500_summary_to_sqlite(weekly_top500_summary):
         """
         CREATE TABLE weekly_summary (
             period integer NOT NULL,
-            dungeon integer NOT NULL,
             spec integer NOT NULL,
             run_count integer NOT NULL
         );
@@ -146,8 +145,8 @@ def push_weekly_top500_summary_to_sqlite(weekly_top500_summary):
     )
     cursor.executemany(
         """
-        INSERT INTO weekly_summary(period, dungeon, spec, run_count)
-        VALUES(?,?,?,?)
+        INSERT INTO weekly_summary(period, spec, run_count)
+        VALUES(?,?,?)
         """,
         weekly_top500_summary,
     )

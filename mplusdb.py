@@ -214,16 +214,46 @@ class MplusDatabase(object):
         data_grouped.reset_index(inplace=True)
         return data_grouped
 
-    def get_weekly_top500(self):
-        """Aggs 'period_rank' view by spec/period.
+    def update_weekly_top500_table(self, period_start, period_end) -> None:
+        """Updates 'period_rank' table with runs for given period band."""
+        # this is janky: I need to dynamically update the list of top 500 runs
+        # (the rankings change throughout the week)
+        # rather than mess around with primary keys, comparing ranks, etc
+        # just drop the week of interest from the table,
+        # and regenerate ranks for that week from scratch
+        drop_query = "DELETE FROM period_rank WHERE period BETWEEN %d and %d" % (
+            period_start,
+            period_end,
+        )
+        self.send_query_to_mdb(drop_query)
 
-        The view needs to be pre-configured.
+        # now regen ranks for that period
+        # this query is a bit hairy:
+        # it selects runs from 'run' table, partitions them into groups by
+        # dungeon and period, then applies DENSE_RANK within groups over the
+        # 'score' column. Runs with rank <= 500 are selected and inserted
+        # into the 'period_rank' table
+        # it's a minor time save over regenerating the entire table or using a view
+        # it also makes the table exportable
+        rank_update_query = """
+            INSERT INTO period_rank
+            SELECT period, period_rank, id from (
+            SELECT id, dungeon, period, score,
+            DENSE_RANK() OVER(
+            PARTITION BY period, dungeon ORDER BY score DESC
+            ) as period_rank from run WHERE period BETWEEN %d and %d) as subtable
+            WHERE period_rank <= 500
         """
+        rank_update_query = rank_update_query % (period_start, period_end)
+        self.send_query_to_mdb(rank_update_query)
+
+    def get_weekly_top500(self):
+        """Aggs 'period_rank'/'roster' join by spec/period."""
         query = """
-            SELECT period, dungeon, spec, count(spec) FROM period_rank
+            SELECT period, spec, count(spec) FROM period_rank
             LEFT JOIN roster
             ON period_rank.id = roster.run_id
-            GROUP BY period, dungeon, spec
+            GROUP BY period, spec
         """
         data = self.send_query_to_mdb(query, isfetch=True)
         return data
