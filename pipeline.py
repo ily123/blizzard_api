@@ -24,7 +24,7 @@ def find_uniq(existing_ids, runs) -> List[tuple]:
     return new_records
 
 
-def get_data(period=None):
+def get_data():
     """Scrapes all of M+ leaderboards and inserts new records into MDB."""
     caller = blizz_api.Caller()
     batch_caller = blizz_api.BatchCaller(caller.access_token)  # share the token
@@ -38,8 +38,7 @@ def get_data(period=None):
     t0 = time.time()
     print("START CYCLE:")
     for region in regions:
-        if not period:
-            period = caller.get_current_period(region)
+        period = caller.get_current_period(region)
         # peek at what's already present in the db for this period/region
         existing_run_ids = mdb.pull_existing_run_ids(region_int[region], period)
         print("Retrieved existing run ids from MDB for [%s %s]" % (region, period))
