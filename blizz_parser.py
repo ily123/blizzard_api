@@ -137,79 +137,22 @@ class RealmRecord:
         return record
 
 
-class KeyRunLeaderboard:
-    """Container/parser for Key Run leaderboard."""
+class RosterMember:
+    """Container for player character from a key run."""
 
-    def __init__(self, json) -> None:
-        self.json = json
-        self._parse_meta_features()
-        self.keyruns = self._parse_key_runs()
+    # a class is an overkill for this? should be a method that produces a NamedTuple
 
-    def _parse_meta_features(self) -> None:
-        """Extracts leaderboard regon-level data."""
-        self.api_call_url = self.json["_links"]["self"]["href"]
-        self.period = self.json["period"]
-        self.realm = _get_realm_id_from_url(self.json["connected_realm"]["href"])
-        self.dungeon = self.json["map_challenge_mode_id"]
-        region_slug = Utils().get_region_from_url(self.api_call_url)
-        self.region = Utils().encode_region(region_slug)
+    def __init__(self, profile) -> None:
+        """Inits with profile element of the 'members' json."""
+        self._parse_profile(profile)
 
-    def _parse_key_runs(self) -> List[KeyRun]:
-        """Unrolls runs/groups component into list of key run records.
-
-        Parses the 'leading_groups' component of the json, which
-        contains a ranking of up to 500 individual key runs.
-
-        If 'leading_groups' missing returns [].
-        """
-        if "leading_groups" not in self.json.keys():
-            return []
-        keyruns = []
-        for keyrun_json in self.json["leading_groups"]:
-            keyrun = KeyRun(keyrun_json, self.region, self.dungeon)
-            keyruns.append(keyrun)
-        return keyruns
-
-    def get_runs_as_tuple_list(self) -> List[tuple]:  # annotation is tricky here
-        """Return leaderboard as list of tuples, where each tuple is a run.
-
-        This list is meant to be fed to an SQL connector for a batch insert.
-        """
-        runs = []
-        if self.keyruns == []:
-            return runs
-        for run in self.keyruns:
-            tpl = (
-                run.run_id,
-                self.dungeon,
-                run.keystone_level,
-                self.period,
-                run.completed_timestamp,
-                run.duration_in_ms,
-                run.faction,
-                self.region,
-                run.score,
-                run.istimed,
-                run.composition,
-            )
-            runs.append(tpl)
-        return runs
-
-    def get_rosters_as_tuple_list(self) -> List[tuple]:
-        """Returns roster data collated as list of tuples."""
-        rosters = []
-        for run in self.keyruns:
-            tpl = run.get_roster_as_tuple_list()
-            rosters.extend(tpl)
-        return rosters
-
-    def get_run_comps_as_vector_list(self) -> List[tuple]:
-        """Return roster class/spec composition as list of lists."""
-        comps = []
-        for run in self.keyruns:
-            comp = run.get_composition_vector()
-            comps.append(comp)
-        return comps
+    def _parse_profile(self, profile) -> None:
+        """Parses character features (name, realm, etc)."""
+        self.name = profile["profile"]["name"]
+        self.id_ = profile["profile"]["id"]
+        self.vanity_realm_id = profile["profile"]["realm"]["id"]
+        self.faction = profile["faction"]["type"]
+        self.spec = profile["specialization"]["id"]
 
 
 class KeyRun:
@@ -302,19 +245,76 @@ class KeyRun:
         return tuple(comp_vector)
 
 
-class RosterMember:
-    """Container for player character from a key run."""
+class KeyRunLeaderboard:
+    """Container/parser for Key Run leaderboard."""
 
-    # a class is an overkill for this? should be a method that produces a NamedTuple
+    def __init__(self, json) -> None:
+        self.json = json
+        self._parse_meta_features()
+        self.keyruns = self._parse_key_runs()
 
-    def __init__(self, profile) -> None:
-        """Inits with profile element of the 'members' json."""
-        self._parse_profile(profile)
+    def _parse_meta_features(self) -> None:
+        """Extracts leaderboard regon-level data."""
+        self.api_call_url = self.json["_links"]["self"]["href"]
+        self.period = self.json["period"]
+        self.realm = _get_realm_id_from_url(self.json["connected_realm"]["href"])
+        self.dungeon = self.json["map_challenge_mode_id"]
+        region_slug = Utils().get_region_from_url(self.api_call_url)
+        self.region = Utils().encode_region(region_slug)
 
-    def _parse_profile(self, profile) -> None:
-        """Parses character features (name, realm, etc)."""
-        self.name = profile["profile"]["name"]
-        self.id_ = profile["profile"]["id"]
-        self.vanity_realm_id = profile["profile"]["realm"]["id"]
-        self.faction = profile["faction"]["type"]
-        self.spec = profile["specialization"]["id"]
+    def _parse_key_runs(self) -> List[KeyRun]:
+        """Unrolls runs/groups component into list of key run records.
+
+        Parses the 'leading_groups' component of the json, which
+        contains a ranking of up to 500 individual key runs.
+
+        If 'leading_groups' missing returns [].
+        """
+        if "leading_groups" not in self.json.keys():
+            return []
+        keyruns = []
+        for keyrun_json in self.json["leading_groups"]:
+            keyrun = KeyRun(keyrun_json, self.region, self.dungeon)
+            keyruns.append(keyrun)
+        return keyruns
+
+    def get_runs_as_tuple_list(self) -> List[tuple]:  # annotation is tricky here
+        """Return leaderboard as list of tuples, where each tuple is a run.
+
+        This list is meant to be fed to an SQL connector for a batch insert.
+        """
+        runs = []
+        if self.keyruns == []:
+            return runs
+        for run in self.keyruns:
+            tpl = (
+                run.run_id,
+                self.dungeon,
+                run.keystone_level,
+                self.period,
+                run.completed_timestamp,
+                run.duration_in_ms,
+                run.faction,
+                self.region,
+                run.score,
+                run.istimed,
+                run.composition,
+            )
+            runs.append(tpl)
+        return runs
+
+    def get_rosters_as_tuple_list(self) -> List[tuple]:
+        """Returns roster data collated as list of tuples."""
+        rosters = []
+        for run in self.keyruns:
+            tpl = run.get_roster_as_tuple_list()
+            rosters.extend(tpl)
+        return rosters
+
+    def get_run_comps_as_vector_list(self) -> List[tuple]:
+        """Return roster class/spec composition as list of lists."""
+        comps = []
+        for run in self.keyruns:
+            comp = run.get_composition_vector()
+            comps.append(comp)
+        return comps
