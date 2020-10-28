@@ -35,7 +35,7 @@ def get_data():
     regions = ["us", "eu", "tw", "kr"]
     region_int = {"us": 1, "eu": 3, "kr": 2, "tw": 4}
     mdb = mplusdb.MplusDatabase("config/db_config.ini")
-    t0 = time.time()
+    cycle_start = time.time()
     print("START CYCLE:")
     for region in regions:
         period = caller.get_current_period(region)
@@ -47,18 +47,33 @@ def get_data():
             batch_caller.region = region
             batch_caller.dungeon = dungeon
             batch_caller.period = period
-            runs, rosters = batch_caller.get_data()
 
+            calls_start = time.time()
+            runs, rosters = batch_caller.get_data()
             novel_runs = find_uniq(existing_run_ids, runs)
             novel_rosters = find_uniq(existing_run_ids, rosters)
+            calls_end = time.time()
+
+            insert_start = time.time()
             if len(novel_runs) > 0:
                 mdb.insert(table="run", data=novel_runs)
                 mdb.insert(table="roster", data=novel_rosters)
+            insert_end = time.time()
             print(
-                ("batch call success [%s %s %s]" + " inserted %d new runs into MDB")
-                % (region, period, dungeon, len(novel_runs))
+                (
+                    "batch call (%d sec) success [%s %s %s]"
+                    + " inserted %d new runs (%d sec) into MDB"
+                )
+                % (
+                    calls_end - calls_start,
+                    region,
+                    period,
+                    dungeon,
+                    len(novel_runs),
+                    insert_end - insert_start,
+                )
             )
-    print("END CYCLE, exec time %d seconds" % (time.time() - t0))
+    print("END CYCLE, exec time %d seconds" % (time.time() - cycle_start))
 
 
 def update_mdb_summary() -> None:
