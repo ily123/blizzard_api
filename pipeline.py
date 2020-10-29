@@ -28,7 +28,8 @@ def get_data():
     """Scrapes all of M+ leaderboards and inserts new records into MDB."""
     caller = blizz_api.Caller()
     batch_caller = blizz_api.BatchCaller(caller.access_token)  # share the token
-    batch_caller.workers = 5
+    batch_caller.workers = 6
+    print(batch_caller.workers)
 
     dungeons = caller.get_dungeons()
     dungeons = [d["id"] for d in dungeons]
@@ -62,13 +63,14 @@ def get_data():
             print(
                 (
                     "batch call (%d sec) success [%s %s %s]"
-                    + " inserted %d new runs (%d sec) into MDB"
+                    + " got %d total runs, inserted %d new runs (%d sec) into MDB"
                 )
                 % (
                     calls_end - calls_start,
                     region,
                     period,
                     dungeon,
+                    len(runs),
                     len(novel_runs),
                     insert_end - insert_start,
                 )
