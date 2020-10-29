@@ -214,8 +214,8 @@ class MplusDatabase(object):
         data_grouped.reset_index(inplace=True)
         return data_grouped
 
-    def update_weekly_top500_table(self, period_start, period_end) -> None:
-        """Updates 'period_rank' table with runs for given period band."""
+    def update_weekly_top500_table(self, period_start: int, period_end: int) -> None:
+        """Updates 'period_rank' and 'summary_top500' tables with period runs"""
         # this is janky: I need to dynamically update the list of top 500 runs
         # (the rankings change throughout the week)
         # rather than mess around with primary keys, comparing ranks, etc
@@ -247,13 +247,21 @@ class MplusDatabase(object):
         rank_update_query = rank_update_query % (period_start, period_end)
         self.send_query_to_mdb(rank_update_query)
 
-    def get_weekly_top500(self):
-        """Aggs 'period_rank'/'roster' join by spec/period."""
-        query = """
+        # now, join the top 500 ranks to roster, count stats, and save into summary
+        summary_update_query = """
+            INSERT INTO summary_top500
             SELECT period, spec, count(spec) FROM period_rank
             LEFT JOIN roster
             ON period_rank.id = roster.run_id
+            WHERE period_rank.period BETWEEN %d and %d
             GROUP BY period, spec
+            ON DUPLICATE KEY UPDATE count=VALUES(count);
         """
+        summary_update_query = summary_update_query % (period_start, period_end)
+        self.send_query_to_mdb(summary_update_query)
+
+    def get_weekly_top500(self):
+        """Aggs 'period_rank'/'roster' join by spec/period."""
+        query = "SELECT * FROM summary_top500"
         data = self.send_query_to_mdb(query, isfetch=True)
         return data

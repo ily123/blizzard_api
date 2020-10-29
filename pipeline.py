@@ -81,8 +81,8 @@ def get_data():
 def update_mdb_summary() -> None:
     """Updates summary tables in MDB."""
     mdb = mplusdb.MplusDatabase("config/db_config.ini")
-    mdb.update_summary_spec_table(period_start=770, period_end=774)
-    mdb.update_weekly_top500_table(period_start=773, period_end=773)
+    mdb.update_summary_spec_table(period_start=770, period_end=772)
+    mdb.update_weekly_top500_table(period_start=772, period_end=772)
 
 
 def export_mdb_summary() -> None:
