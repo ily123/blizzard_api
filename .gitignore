@@ -5,6 +5,11 @@
 logs/
 dashboard_class_representation/zip_these/*
 data/*
+_test_pipeline_methods2.ipynb
+test_scheduler.txt
+
+
+#-------github defaults:
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
