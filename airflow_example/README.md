@@ -64,7 +64,7 @@ to be run in different environments. We can achieve that in 4 different ways:
 ---
 **To run all this in the background**
 
-As described to run this pipeline you'll need 2 open terminal windows connected to the EC2
+As described, to run this pipeline you'll need 2 open terminal windows connected to the EC2
 worker (one terminal for scheduler, and one for webserver). As soon as you close the terminals or the
 connection breaks, airflow will stop executing.
 
