@@ -46,7 +46,7 @@ to be run in different environments. We can achieve that in 4 different ways:
 * Add your pipeline script (```metawatch_bash.py```) to ```airflow/dags/```. This is where airflow will look for your pipelines by default.
 * Test that the script doesn't throw errors when importing:
 	```
-	python metawatch.py
+	python metawatch_bash.py
 	```
 * If there are no errors, you can test each task in the pipeline, as described in the tutorial:
 	```
