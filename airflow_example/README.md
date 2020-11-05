@@ -71,7 +71,7 @@ connection breaks, airflow will stop executing.
 There are two solutions to this. One is to run airflow in the background like this:
 ```
 nohup airflow webserver -p 4000 >> webserver.log &
-nohup airflow scheduler -p 4000 >> webserver.log &
+nohup airflow scheduler -p >> scheduler.log &
 ```
 Now, you should be able to log off. If a server crashes, though, you have to restart these manually.
 
