@@ -80,9 +80,19 @@ def get_data():
 
 def update_mdb_summary() -> None:
     """Updates summary tables in MDB."""
+    caller = blizz_api.Caller()
+    us_current_period = caller.get_current_period("us")
+    # different regions roll into new period (reset) at 
+    # different times. So on Tue/Wed the regions are in 
+    # different time periods, and US is the first to roll over.
+    # So we will regenerate the summary table for all data from
+    # [US current period] & [US current period - 1] to account for
+    # this period overlap
+    start = us_current_period - 1
+    end = us_current_period
     mdb = mplusdb.MplusDatabase("config/db_config.ini")
-    mdb.update_summary_spec_table(period_start=773, period_end=774)
-    mdb.update_weekly_top500_table(period_start=773, period_end=774)
+    mdb.update_summary_spec_table(period_start=start, period_end=end)
+    mdb.update_weekly_top500_table(period_start=start, period_end=end)
 
 
 def export_mdb_summary() -> None:
@@ -168,3 +178,8 @@ def push_weekly_top500_summary_to_sqlite(weekly_top500_summary):
     )
     conn.commit()
     conn.close()
+
+
+if __name__=="__main__":
+    get_data()
+    update_export_summary()
