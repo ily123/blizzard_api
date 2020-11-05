@@ -73,7 +73,7 @@ There are two solutions to this. One is to run airflow in the background like th
 nohup airflow webserver -p 4000 >> webserver.log &
 nohup airflow scheduler -p >> scheduler.log &
 ```
-Now, you should be able to log off. If a server crashes, though, you have to restart these manually.
+Now, you should be able to log off. If the server crashes, though, you have to restart these manually.
 
 The second option is to set up airflow as a
 service. This way, whenever the node crashes, airflow will launch automatically. (But
