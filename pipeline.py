@@ -82,8 +82,8 @@ def update_mdb_summary() -> None:
     """Updates summary tables in MDB."""
     caller = blizz_api.Caller()
     us_current_period = caller.get_current_period("us")
-    # different regions roll into new period (reset) at 
-    # different times. So on Tue/Wed the regions are in 
+    # different regions roll into new period (reset) at
+    # different times. So on Tue/Wed the regions are in
     # different time periods, and US is the first to roll over.
     # So we will regenerate the summary table for all data from
     # [US current period] & [US current period - 1] to account for
@@ -180,6 +180,6 @@ def push_weekly_top500_summary_to_sqlite(weekly_top500_summary):
     conn.close()
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     get_data()
     update_export_summary()

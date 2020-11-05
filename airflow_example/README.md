@@ -30,7 +30,7 @@ to be run in different environments. We can achieve that in 4 different ways:
 	```
 	pip install apache-airflow==1.10.12 \ --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-1.10.12/constraints-3.7.txt"
 	```
-* **Note:** Whenever you execute airflow commands it will create ```/home/<user>/airflow/``` folder to store its configurations and dags. Let it do it. If you want a different folder, tell it where with ```export AIRFLOW_HOME=<desired airflow foler>```. I found it easier to just let airflow live in /home.
+* **Note:** Whenever you execute airflow commands it will create ```/home/<user>/airflow/``` folder to store its configurations and dags. Let it do it. If you want a different folder, tell it where with ```export AIRFLOW_HOME=<desired airflow folder>```. I found it easier to just let airflow live in /home.
 * Test that airflow installed correctly:
 	* do ```airflow -help```
 	* After running ```airflow -help``` there should be an ```airflow/``` dir in your home.

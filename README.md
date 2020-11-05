@@ -2,6 +2,9 @@
 
 Backend code for collection and storage of Blizzard's Mythic+ leaderboard data.
 
+![Python](https://img.shields.io/badge/python-3.6%7C3.7-blue.svg)
+![Python](https://img.shields.io/badge/mySQL-8.0-blue.svg)
+[![License](https://img.shields.io/badge/license-GPL3-blue.svg)](https://raw.githubusercontent.com/ily123/metawatch-dash/master/LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 ## Overview 
@@ -37,20 +40,13 @@ The pipeline is as follows:
 ```
 
 ## Prerequisite: MySQL server
-The code sits on top of a MySQL RDMS. The version I am using locally for development is:
+The code sits on top of a MySQL RDBMS. The version I am using is:
 
 ```
 Ver 8.0.21 for Linux on x86_64 (MySQL Community Server - GPL)
 ```
-And on AWS RDS for "production":
-```
-aws-ver-...
-```
-To install MySQL locally see this guide ($$LINK$$). If you want to set up a remote DB,
-your cloud provider should have a guide on how to do it.
-
-Note on version: there are two major versions of MySQL client - 5.0.XXX and 8.0.XXX. Any
-8.0.+ should work fine.
+To install MySQL locally see [this guide](https://itsfoss.com/install-mysql-ubuntu/).
+Or set up it up with your favorite cloud provider.
 
 ## Installation 
 **1. Install python and create a blank environment.**
@@ -61,10 +57,8 @@ Note on version: there are two major versions of MySQL client - 5.0.XXX and 8.0.
 
 * Use your favorite env manager to create and active a new virtual environment
     ```
-    mkdir envs  # I keep my environments under /home/envs, you do whatever
-    cd envs
-    python3.6 -m venv metawatch  # will createa 'metawatch' folder under env/
-    source /home/envs/metawatch/bin/activate
+    python3.6 -m venv metawatch_env  # will create 'metawatch_env' folder
+    source metawatch_env/bin/activate
     cd ~
     ```
 
@@ -73,19 +67,12 @@ Note on version: there are two major versions of MySQL client - 5.0.XXX and 8.0.
 * Clone the repo locally:
 
     ```
-    git clone https://github.com/ily123/blizzard_api
+    git clone https://github.com/ily123/metawatch
     ```
-* Install dependencies using ```requirements.txt```
+* Install dependencies into your virtual env:
     ```
     cd metawatch
     pip install -r requirements.txt
-    ```
-    or manually
-    ```
-    pip install numpy
-    pip install pandas
-    pip install requests
-    pip install mysql-connector-python
     ```
 * Don't try to run anything yet. You still need to configure DB access, and get Blizzard authorization token.
 
@@ -101,22 +88,16 @@ To access Blizzard API, you need to register with Blizzard and get a ```client i
     client_id = client_id_string
     client_secret = client_secret_string
     ```
-    In the repo, there is template file for this - ```config/_blizzard_api_acess.ini```. You can paste the strings in there (don't forget to remove the leading underscore after you save).
+    There is template file for this - ```config/_blizzard_api_acess.ini```. You can paste the strings in there (don't forget to remove the leading underscore after you save).
 * Using these, the code will generate an API access token every time before a data retrieval session. 
 
-**4. Test data retrieval**
-* At this point you should be able to get data from Blizzard. To test, run
-```
-python tasks --TEST
-```
-This will retrieve leaderboard results for the first realm/dungeon. The output should look something like this:
-```
-BLAH
-```
-If you don't plan to store the data, you are done. See ```examples.nb``` for examples of using the API to retrieve data.
+* At this point you should be able to get data from Blizzard. To test, run the first few cells in the ```example.ipynb```
+notebook. 
+
+**If you don't plan to store the data, you are done with set up.**
 
 ---
-**5. Create the database and populate with empty tables**
+**4. Create the database and populate with empty tables**
 
 Follow the steps below to create the database.
 * go to ```sql_scripts/```, and issue the following command:
