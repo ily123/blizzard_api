@@ -23,22 +23,6 @@ The pipeline is as follows:
 5. Push new records into the database
 6. Summarize data in the DB and send it to the [front-end](https://github.com/ily123/metawatch-dash/)
 
-## Repo struct
-
-```
-    ├── data/                      # saves SQLite summary here, empty
-    ├── notebooks/                 # research & test nbs; for posterity, PATHs broken
-    ├── sql_scripts/               # SQL scripts to create empty DB tables
-    ├── blizzard_api.py            # module with fetch/parse logic
-    ├── blizzard_credentials.py    # authorization module
-    ├── mplusdb.py                 # database connector
-    ├── README.md                  
-    ├── requirements.txt           
-    ├── summarize.py               # script to create / update / export summary data in the DB
-    ├── tasks.py                   # high-level methods that compose the pipeline
-    └── utils.py                   # utility methods
-```
-
 ## Prerequisite: MySQL server
 The code sits on top of a MySQL RDBMS. The version I am using is:
 
