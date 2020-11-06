@@ -3,7 +3,7 @@
 Backend code for collection and storage of Blizzard's Mythic+ leaderboard data.
 
 ![Python](https://img.shields.io/badge/python-3.6%7C3.7-blue.svg)
-![Python](https://img.shields.io/badge/mySQL-8.0-blue.svg)
+![Python](https://img.shields.io/badge/MySQL-8.0-blue.svg)
 [![License](https://img.shields.io/badge/license-GPL3-blue.svg)](https://raw.githubusercontent.com/ily123/metawatch-dash/master/LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
@@ -21,7 +21,7 @@ The pipeline is as follows:
 3. Retrieve ids of M+ records already in our database (for the current week)
 4. Find records that are new
 5. Push new records into the database
-6. Summarize data in the DB and send it to the front-end ($$LINK$$)
+6. Summarize data in the DB and send it to the [front-end](https://github.com/ily123/metawatch-dash/)
 
 ## Repo struct
 
@@ -99,31 +99,47 @@ notebook.
 ---
 **4. Create the database and populate with empty tables**
 
-Follow the steps below to create the database.
+Assuming you have a MySQL server set up:
 * go to ```sql_scripts/```, and issue the following command:
 
     ```
     mysql -u <user> -h <host> -p schema.sql
     ```
-
-* This will connect to the DB and create a ```keyruns``` database. It will then populate ```keyruns``` with empty tables. The two main tables are ```roster``` and ```run```.
+* This will connect to the DB and run the commands inside ```schema.sql```. Specifically, it will create a ```keyruns``` database. It will then populate ```keyruns``` with empty tables. The two main tables are ```roster``` and ```run```.
 * There are also a few utility tables (```expansion```, ```region```, ```realm```, etc).
 Most of these contain static data that doesn't change often.
-I still need to write stand-alone scripts to populate & update these tables.
+I still need to write code to populate & update these tables.
 You don't need these tables for the core pipeline functionality.
 
-**6. Configure database access**
+**5. Configure database access (for python pipeline)**
 
-* go to ```metawatch/config/``` and create a file named ```.db_config```
+* go to ```metawatch/config/``` and create a file named ```db_config.ini```
 * in the file, enter your DB user login and password in the following format:
     ```
-    $$user$$: ABC
-    $$password$$: XYZ
+    [DATABASE]
+    user = user_name
+    password = user_password
+    host = db_host
     ```
-* the .gitignore file is configured to ignore all contents of the ```config/``` dir, but make sure these don't end up 
-    on public display by accident
+    An empty template .ini file is also provided (```_db_config.ini``` - fill out and remove the underscore).
+* Note: the .gitignore file is configured to ignore all contents of the ```config/``` dir, except the template files.
 
 
 ## Usage
-## License
 
+* To test available methods / classes, go through the ```example.ipynb``` notebook.
+* The complete pipeline assembled from these methods is in ```pipeline.py```. There
+is just 1 main method there really, ```get_data()``` - which polls all leaderboard 
+endpoints and then pushes the data to MySQL db.
+    ```
+    import pipeline
+    pipeline.get_data() # gets current week by default
+    ```
+
+    ```
+    Retrieved existing run ids from MDB for [us 775]
+    batch call (18 sec) success [us 775 244] got 5515 total runs, inserted 5515 new runs (6 sec) into MDB
+    batch call (23 sec) success [us 775 245] got 6910 total runs, inserted 6910 new runs (8 sec) into MDB
+    batch call (18 sec) success [us 775 246] got 4121 total runs, inserted 4121 new runs (5 sec) into MDB
+    ```
+* An example of using the pipeline script with airflow is in ```airflow_example/``` and has its own README. 
