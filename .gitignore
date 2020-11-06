@@ -6,6 +6,7 @@ logs/
 dashboard_class_representation/zip_these/*
 data/*
 _test_pipeline_methods2.ipynb
+_test_pipeline_methods.ipynb
 test_scheduler.txt
 
 
