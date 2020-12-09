@@ -4,6 +4,33 @@ import re
 import pandas as pd
 
 
+def get_dungeon_timers():
+    """Returns timer for dungeon in ms."""
+    dungeon_timers = {
+        244: 1800000,
+        245: 1980000,
+        246: 2160000,
+        247: 2340000,
+        248: 2340000,
+        249: 2520000,
+        250: 2160000,
+        251: 1980000,
+        252: 2520000,
+        353: 2160000,
+        369: 2280000,
+        370: 1920000,
+        375: 1800000,
+        376: 2160000,
+        377: 2340000,
+        378: 1860000,
+        379: 2280000,
+        380: 2460000,
+        381: 2340000,
+        382: 2220000
+    }
+    return dungeon_timers
+
+
 class Utils:
     """Collection of utility methods."""
 
@@ -45,45 +72,21 @@ class Utils:
     @staticmethod
     def istimed(dungeon, duration):
         """Checks if run has been timed."""
-        timer_in_ms = {
-            244: 1800000,
-            245: 1980000,
-            246: 2160000,
-            247: 2340000,
-            248: 2340000,
-            249: 2520000,
-            250: 2160000,
-            251: 1980000,
-            252: 2520000,
-            353: 2160000,
-            369: 2280000,
-            370: 1920000,
-        }
+        timer_in_ms = get_dungeon_timers()
         return int(duration) <= timer_in_ms[int(dungeon)]
 
 
 class Scorer:
     def __init__(self):
-        self.dungeon_timers = {
-            244: 1800000,
-            245: 1980000,
-            246: 2160000,
-            247: 2340000,
-            248: 2340000,
-            249: 2520000,
-            250: 2160000,
-            251: 1980000,
-            252: 2520000,
-            353: 2160000,
-            369: 2280000,
-            370: 1920000,
-        }
+        """Inits with dungeon timer dict attr."""
+        self.dungeon_timers = get_dungeon_timers()
 
     def get_ratio_user_vs_base_timer(self, user_time, user_dungeon):
         default_time = self.dungeon_timers[user_dungeon]
         return user_time / default_time
 
     def get_score(self, user_time, user_dungeon, dungeon_level):
+        """Calculates points awarded for run."""
         ratio = self.get_ratio_user_vs_base_timer(user_time, user_dungeon)
 
         base_points = self.get_base_score(dungeon_level)
@@ -99,6 +102,7 @@ class Scorer:
         return final_score
 
     def get_bonus_points(self, ratio, base_points):
+        """Calculates bonus points gained for faster-than-timer completion."""
         flat_bonus = (1 - ratio) * 0.085
         chest_bonus = 0
         if ratio <= 0.6:
@@ -110,6 +114,7 @@ class Scorer:
         return bonus_points
 
     def get_penalty_points(self, ratio, base_points):
+        """Calculates penalty points for failed timer."""
         base_penatly_points = base_points * 0.1
         additional_penalty_points = (ratio - 1) * (0.24 * base_points * 0.9)
         total_penalty = base_penatly_points + additional_penalty_points
