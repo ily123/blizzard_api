@@ -206,6 +206,7 @@ class MplusDatabase(object):
         data["season"] = "unknown"
         data.loc[(data.period) >= 734 & (data.period <= 771), "season"] = "bfa4"
         data.loc[data.period >= 772, "season"] = "bfa4_postpatch"
+        data.loc[data.period >= 780, "season"] = "SL1"
         data_grouped = (
             data[["season", "spec", "level", "count"]]
             .groupby(["season", "spec", "level"])
