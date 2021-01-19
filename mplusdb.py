@@ -2,8 +2,9 @@
 import configparser
 from typing import List, Optional
 
-import mysql.connector
 import pandas as pd
+
+import mysql.connector
 
 
 class MplusDatabase(object):
@@ -129,6 +130,12 @@ class MplusDatabase(object):
             conn.commit()
         except Exception as error:
             print("ERROR CONNECTING TO MDB: ", error)
+            if "Commands out of sync; you can't run this command now" in str(error):
+                print("""
+                NOTE: You probably sent a SELECT query that returns something,
+                but didn't set isfetch to True. So now it's trying to commit() after
+                a transaction that hasn't been fetched. Try setting isfetch to True.
+                """)
         finally:
             conn.close()
         return result
