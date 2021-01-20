@@ -8,7 +8,7 @@ Example usage:
 """
 import sqlite3
 import time
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import pandas as pd
 
@@ -105,6 +105,12 @@ def export_mdb_summary() -> None:
     weekly_top500_summary = mdb.get_weekly_top500()
     push_weekly_top500_summary_to_sqlite(weekly_top500_summary)
 
+    # This module needs to be refactored.
+    # For now, I hard code the period for SL season 1 (780,...)
+    # I don't know when the season ends, so period end is 10,000
+    comp_data = mdb.get_composition_data(period_start=780, period_end=10000)
+    push_comp_data_to_sqlite(comp_data)
+
 
 def update_export_summary() -> None:
     """First updates, then exports MDB summary tables as sqlite file."""
@@ -175,6 +181,39 @@ def push_weekly_top500_summary_to_sqlite(weekly_top500_summary):
         VALUES(?,?,?)
         """,
         weekly_top500_summary,
+    )
+    conn.commit()
+    conn.close()
+
+
+def push_comp_data_to_sqlite(data: List[Tuple[str, int, float, float]]) -> None:
+    """Pushes composition data to SQLite db.
+
+    Parameters
+    ----------
+    data : List[tuple(str, int, float, float)], optional
+        list of tuples with comp data, including tokenized comp name
+        the number of runs, and average and std dev of the run key levels
+    """
+    conn = connect_to_sqlite("../data/summary.sqlite")
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS composition")
+    cursor.execute(
+        """
+        CREATE TABLE composition(
+            composition text NOT NULL,
+            run_count integer NOT NULL,
+            level_mean real NOT NULL,
+            level_std real NOT NULL
+        );
+        """
+    )
+    cursor.executemany(
+        """
+        INSERT INTO composition(composition, run_count, level_mean, level_std)
+        VALUES(?,?,?,?)
+        """,
+        data,
     )
     conn.commit()
     conn.close()
