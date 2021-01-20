@@ -132,10 +132,10 @@ class MplusDatabase(object):
             if "Commands out of sync; you can't run this command now" in str(error):
                 print(
                     """
-                NOTE: You probably sent a SELECT query that returns something,
-                but didn't set isfetch to True. So now it's trying to commit() after
-                a transaction that hasn't been fetched. Try setting isfetch to True.
-                """
+                    NOTE: You probably sent a SELECT query that returns something,
+                    but didn't set isfetch to True. So now it's trying to commit() after
+                    a transaction that hasn't been fetched. Try setting isfetch to True.
+                    """
                 )
         finally:
             conn.close()
@@ -303,7 +303,7 @@ class MplusDatabase(object):
             start=period_start, end=period_end
         )
         data = self.send_query_to_mdb(query, isfetch=True)
-        # the third column is returnd as "decimal.Decimal", convert to "flaot"
+        # the third column is returned as "decimal.Decimal", convert to "float"
         if data:
             data = [(c1, c2, float(c3), c4) for c1, c2, c3, c4 in data]
         return data

@@ -191,11 +191,11 @@ def push_comp_data_to_sqlite(data: List[Tuple[str, int, float, float]]) -> None:
 
     Parameters
     ----------
-    data : List[tuple(str, int, float, float)], optional
+    data : List[tuple(str, int, float, float)]
         list of tuples with comp data, including tokenized comp name
         the number of runs, and average and std dev of the run key levels
     """
-    conn = connect_to_sqlite("../data/summary.sqlite")
+    conn = connect_to_sqlite("data/summary.sqlite")
     cursor = conn.cursor()
     cursor.execute("DROP TABLE IF EXISTS composition")
     cursor.execute(
