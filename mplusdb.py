@@ -1,10 +1,9 @@
 """Module for uploading data to the M+ MySQL database."""
 import configparser
-from typing import List, Optional
-
-import pandas as pd
+from typing import List, Optional, Tuple, Union
 
 import mysql.connector
+import pandas as pd
 
 
 class MplusDatabase(object):
@@ -131,11 +130,13 @@ class MplusDatabase(object):
         except Exception as error:
             print("ERROR CONNECTING TO MDB: ", error)
             if "Commands out of sync; you can't run this command now" in str(error):
-                print("""
+                print(
+                    """
                 NOTE: You probably sent a SELECT query that returns something,
                 but didn't set isfetch to True. So now it's trying to commit() after
                 a transaction that hasn't been fetched. Try setting isfetch to True.
-                """)
+                """
+                )
         finally:
             conn.close()
         return result
@@ -272,4 +273,37 @@ class MplusDatabase(object):
         """Aggs 'period_rank'/'roster' join by spec/period."""
         query = "SELECT * FROM summary_top500"
         data = self.send_query_to_mdb(query, isfetch=True)
+        return data
+
+    def get_composition_data(
+        self, period_start: int, period_end: int
+    ) -> Union[List[Tuple[str, int, float, float]], None]:
+        """Fetches composition data for a period interval.
+
+        Parameters
+        ----------
+        period_start : int
+            start of the period, using Blizzard's period id
+        period_end : int
+            end of the period, using Blizzard's period id
+
+        Returns
+        -------
+        data : List[tuple(str, int, float, float)], optional
+            list of tuples with comp data, including tokenized comp name
+            the number of runs, and average and std dev of the run key levels
+        """
+        query = """
+            SELECT composition, COUNT(level), AVG(level), STD(level)
+            FROM run
+            WHERE period between {start} and {end}
+            GROUP BY composition
+            ORDER BY COUNT(level);
+        """.format(
+            start=period_start, end=period_end
+        )
+        data = self.send_query_to_mdb(query, isfetch=True)
+        # the third column is returnd as "decimal.Decimal", convert to "flaot"
+        if data:
+            data = [(c1, c2, float(c3), c4) for c1, c2, c3, c4 in data]
         return data
