@@ -277,7 +277,7 @@ class MplusDatabase(object):
 
     def get_composition_data(
         self, period_start: int, period_end: int
-    ) -> Union[List[Tuple[str, int, float, float]], None]:
+    ) -> Union[List[Tuple[str, int, float, float, int]], None]:
         """Fetches composition data for a period interval.
 
         Parameters
@@ -289,12 +289,12 @@ class MplusDatabase(object):
 
         Returns
         -------
-        data : List[tuple(str, int, float, float)], optional
+        data : List[tuple(str, int, float, float, int)], optional
             list of tuples with comp data, including tokenized comp name
-            the number of runs, and average and std dev of the run key levels
+            the number of runs, and average, std dev, and max of the run key levels
         """
         query = """
-            SELECT composition, COUNT(level), AVG(level), STD(level)
+            SELECT composition, COUNT(level), AVG(level), STD(level), MAX(level)
             FROM run
             WHERE period between {start} and {end}
             GROUP BY composition

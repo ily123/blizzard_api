@@ -186,12 +186,12 @@ def push_weekly_top500_summary_to_sqlite(weekly_top500_summary):
     conn.close()
 
 
-def push_comp_data_to_sqlite(data: List[Tuple[str, int, float, float]]) -> None:
+def push_comp_data_to_sqlite(data: List[Tuple[str, int, float, float, int]]) -> None:
     """Pushes composition data to SQLite db.
 
     Parameters
     ----------
-    data : List[tuple(str, int, float, float)]
+    data : List[tuple(str, int, float, float, int)]
         list of tuples with comp data, including tokenized comp name
         the number of runs, and average and std dev of the run key levels
     """
@@ -204,13 +204,14 @@ def push_comp_data_to_sqlite(data: List[Tuple[str, int, float, float]]) -> None:
             composition text NOT NULL,
             run_count integer NOT NULL,
             level_mean real NOT NULL,
-            level_std real NOT NULL
+            level_std real NOT NULL,
+            level_max integer NOT NULL
         );
         """
     )
     cursor.executemany(
         """
-        INSERT INTO composition(composition, run_count, level_mean, level_std)
+        INSERT INTO composition(composition, run_count, level_mean, level_std, level_max)
         VALUES(?,?,?,?)
         """,
         data,
