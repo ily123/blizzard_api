@@ -305,5 +305,5 @@ class MplusDatabase(object):
         data = self.send_query_to_mdb(query, isfetch=True)
         # the third column is returned as "decimal.Decimal", convert to "float"
         if data:
-            data = [(c1, c2, float(c3), c4) for c1, c2, c3, c4 in data]
+            data = [(c1, c2, float(c3), c4, c5) for c1, c2, c3, c4, c5 in data]
         return data
