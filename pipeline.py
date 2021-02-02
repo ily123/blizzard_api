@@ -212,7 +212,7 @@ def push_comp_data_to_sqlite(data: List[Tuple[str, int, float, float, int]]) -> 
     cursor.executemany(
         """
         INSERT INTO composition(composition, run_count, level_mean, level_std, level_max)
-        VALUES(?,?,?,?)
+        VALUES(?,?,?,?,?)
         """,
         data,
     )
