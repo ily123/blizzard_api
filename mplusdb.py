@@ -307,3 +307,19 @@ class MplusDatabase(object):
         if data:
             data = [(c1, c2, float(c3), c4, c5) for c1, c2, c3, c4, c5 in data]
         return data
+
+    def get_activity_data(self) -> List[Tuple[int, int]]:
+        """Fetches key runs per period data.
+
+        Returns
+        -------
+        data : List[tuple(int, int)]
+            List of period and its number of key runs
+        """
+        query = """
+            SELECT period, count(period)
+            FROM run
+            GROUP BY period
+        """
+        data = self.send_query_to_mdb(query, isfetch=True)
+        return data

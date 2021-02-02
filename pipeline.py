@@ -108,8 +108,12 @@ def export_mdb_summary() -> None:
     # This module needs to be refactored.
     # For now, I hard code the period for SL season 1 (780,...)
     # I don't know when the season ends, so period end is 10,000
-    comp_data = mdb.get_composition_data(period_start=780, period_end=10000)
+    comp_data = mdb.get_composition_data(period_start=770, period_end=10000)
     push_comp_data_to_sqlite(comp_data)
+
+    # get activity data and push to SQLite
+    runs_per_period = mdb.get_activity_data()
+    push_activity_data_to_sqlite(runs_per_period)
 
 
 def update_export_summary() -> None:
@@ -133,6 +137,36 @@ def connect_to_sqlite(db_file_path: str) -> sqlite3.Connection:
     except Exception as error:
         print("ERROR CONNECTING TO SQLITE: ", error)
     return conn
+
+
+def push_activity_data_to_sqlite(activity: List[Tuple[int, int]]) -> None:
+    """Push activity data to sqlite.
+
+    Parameter
+    ---------
+    activity : List[Tuple[int, int]]
+        List of (period, number key runs) tuples.
+    """
+    conn = connect_to_sqlite("data/summary.sqlite")
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS activity")
+    cursor.execute(
+        """
+        CREATE TABLE activity(
+            period integer NOT NULL,
+            run_count integer NOT NULL
+        );
+        """
+    )
+    cursor.executemany(
+        """
+        INSERT INTO activity(period, run_count)
+        VALUES(?,?)
+        """,
+        activity,
+    )
+    conn.commit()
+    conn.close()
 
 
 def push_summary_spec_to_sqlite(summary_spec: pd.DataFrame) -> None:
