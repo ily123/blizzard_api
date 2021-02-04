@@ -108,7 +108,7 @@ def export_mdb_summary() -> None:
     # This module needs to be refactored.
     # For now, I hard code the period for SL season 1 (780,...)
     # I don't know when the season ends, so period end is 10,000
-    comp_data = mdb.get_composition_data(period_start=780, period_end=10000)
+    comp_data = mdb.get_composition_data_COLLATE(period_start=780, period_end=10000)
     push_comp_data_to_sqlite(comp_data)
 
     # get activity data and push to SQLite

@@ -323,3 +323,38 @@ class MplusDatabase(object):
         """
         data = self.send_query_to_mdb(query, isfetch=True)
         return data
+
+    def get_composition_data_COLLATE(
+        self, period_start: int, period_end: int
+    ) -> Union[List[Tuple[str, int, float, float, int]], None]:
+        """Fetches composition data for a period interval.
+
+        Parameters
+        ----------
+        period_start : int
+            start of the period, using Blizzard's period id
+        period_end : int
+            end of the period, using Blizzard's period id
+
+        Returns
+        -------
+        data : List[tuple(str, int, float, float, int)], optional
+            list of tuples with comp data, including tokenized comp name
+            the number of runs, and average, std dev, and max of the run key levels
+        """
+
+        query = """
+            SELECT Composition, COUNT(level), AVG(level), STD(level), MAX(level)
+            FROM run
+            WHERE period between {start} and {end}
+            GROUP BY Composition, Cast(composition As binary(100)) 
+            ORDER BY COUNT(level);
+        """.format(
+            start=period_start, end=period_end
+        )
+        data = self.send_query_to_mdb(query, isfetch=True)
+        # the third column is returned as "decimal.Decimal", convert to "float"
+        if data:
+            data = [(c1, c2, float(c3), c4, c5) for c1, c2, c3, c4, c5 in data]
+        return data
+
