@@ -347,7 +347,7 @@ class MplusDatabase(object):
             SELECT Composition, COUNT(level), AVG(level), STD(level), MAX(level)
             FROM run
             WHERE period between {start} and {end}
-            GROUP BY Composition, Cast(composition As binary(100)) 
+            GROUP BY Composition, Cast(composition As binary(100))
             ORDER BY COUNT(level);
         """.format(
             start=period_start, end=period_end
@@ -358,3 +358,28 @@ class MplusDatabase(object):
             data = [(c1, c2, float(c3), c4, c5) for c1, c2, c3, c4, c5 in data]
         return data
 
+    def update_ranks_table(
+        self, period_start: int, period_end: int, min_level: int
+    ) -> None:
+        """Updates ranks for specified runs.
+
+        Parameters
+        ----------
+        period_start : int
+            start of the period, using Blizzard's period id
+        period_end : int
+            end of the period, using Blizzard's period id
+        min_level : int
+            minimum level of keys to rank
+        """
+        # CREATE table ranks_(id bigint not null PRIMARY KEY, score float, rank_ bigint);
+
+        query = """
+            INSERT INTO rank_ SELECT id, score, DENSE_RANK()
+            OVER(partition by dungeon ORDER BY score) as rank_
+            from run where level >= {min_level} and period BETWEEN {start} AND {end}
+            ON DUPLICATE KEY UPDATE rank_=rank_;
+        """.format(
+            start=period_start, end=period_end, min_level=min_level
+        )
+        self.send_query_to_mdb(query, isfetch=False)
