@@ -261,6 +261,12 @@ class KeyRunLeaderboard:
         self.dungeon = self.json["map_challenge_mode_id"]
         region_slug = Utils().get_region_from_url(self.api_call_url)
         self.region = Utils().encode_region(region_slug)
+        self.affixes = sorted(
+            [
+                int(affix["keystone_affix"]["id"])
+                for affix in self.json["keystone_affixes"]
+            ]
+        )
 
     def _parse_key_runs(self) -> List[KeyRun]:
         """Unrolls runs/groups component into list of key run records.

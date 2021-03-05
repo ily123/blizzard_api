@@ -7,6 +7,7 @@ import pandas as pd
 def get_dungeon_timers():
     """Returns timer for dungeon in ms."""
     dungeon_timers = {
+        197: 2000000,  # placeholder for 197
         244: 1800000,
         245: 1980000,
         246: 2160000,
@@ -26,7 +27,7 @@ def get_dungeon_timers():
         379: 2280000,
         380: 2460000,
         381: 2340000,
-        382: 2220000
+        382: 2220000,
     }
     return dungeon_timers
 
