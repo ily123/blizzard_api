@@ -11,7 +11,7 @@ class MplusDatabase(object):
 
     __utility_tables = ["realm", "region", "dungeon", "spec", "period"]
     __table_fields = {  # these are used to formulate batch inserts queries
-        "period": ["region", "id", "start_timestamp", "end_timestamp"],
+        "period": ["region", "id", "start_timestamp", "end_timestamp", "tyrannical", "affixes"],
         "run": [
             "id",
             "dungeon",
@@ -95,7 +95,9 @@ class MplusDatabase(object):
         Warning: make sure row fields align with fields in the table.
         """
         if not isinstance(data, list):
-            raise TypeError("Supply data as a list of rows")
+            raise TypeError("Supply data as a list of rows.")
+        if table not in self.__table_fields.keys():
+            raise ValueError("Table not annotated in object attrs.")
         fields = self.get_table_fields(table)
         connection = self.connect()
         cursor = connection.cursor()
@@ -321,6 +323,10 @@ class MplusDatabase(object):
             FROM run
             GROUP BY period
         """
+        # Consider doing it this way after DB merge:
+        # SELECT period, tyrannical, COUNT(level), MAX(level), AVG(level) 
+        # from run left join period on run.period = period.id where period.region = 1
+        # group by period;
         data = self.send_query_to_mdb(query, isfetch=True)
         return data
 
