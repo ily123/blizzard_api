@@ -381,7 +381,7 @@ class MplusDatabase(object):
         # CREATE table ranks_(id bigint not null PRIMARY KEY, score float, rank_ bigint);
 
         query = """
-            INSERT INTO rank_ SELECT id, score, DENSE_RANK()
+            INSERT INTO run_rank SELECT id, score, DENSE_RANK()
             OVER(partition by dungeon ORDER BY score) as rank_
             from run where level >= {min_level} and period BETWEEN {start} AND {end}
             ON DUPLICATE KEY UPDATE rank_=rank_;
