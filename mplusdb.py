@@ -11,7 +11,14 @@ class MplusDatabase(object):
 
     __utility_tables = ["realm", "region", "dungeon", "spec", "period"]
     __table_fields = {  # these are used to formulate batch inserts queries
-        "period": ["region", "id", "start_timestamp", "end_timestamp", "tyrannical", "affixes"],
+        "period": [
+            "region",
+            "id",
+            "start_timestamp",
+            "end_timestamp",
+            "tyrannical",
+            "affixes",
+        ],
         "run": [
             "id",
             "dungeon",
@@ -324,7 +331,7 @@ class MplusDatabase(object):
             GROUP BY period
         """
         # Consider doing it this way after DB merge:
-        # SELECT period, tyrannical, COUNT(level), MAX(level), AVG(level) 
+        # SELECT period, tyrannical, COUNT(level), MAX(level), AVG(level)
         # from run left join period on run.period = period.id where period.region = 1
         # group by period;
         data = self.send_query_to_mdb(query, isfetch=True)
@@ -378,14 +385,48 @@ class MplusDatabase(object):
         min_level : int
             minimum level of keys to rank
         """
-        # CREATE table ranks_(id bigint not null PRIMARY KEY, score float, rank_ bigint);
-
+        # CREATE table ranks_(id bigint not null PRIMARY KEY, rank_ bigint);
         query = """
-            INSERT INTO run_rank SELECT id, score, DENSE_RANK()
-            OVER(partition by dungeon ORDER BY score) as rank_
-            from run where level >= {min_level} and period BETWEEN {start} AND {end}
-            ON DUPLICATE KEY UPDATE rank_=rank_;
+            INSERT INTO run_rank select run.id, RANK() OVER(partition by run.dungeon, period.tyrannical ORDER BY run.score DESC) as rank_
+            from run left join period on run.period = period.id
+            where period.region = 1 and run.period BETWEEN {start} AND {end} and run.level >= {min_level}
+            ON DUPLICATE KEY UPDATE run_rank.rank_=VALUES(rank_);
         """.format(
             start=period_start, end=period_end, min_level=min_level
         )
         self.send_query_to_mdb(query, isfetch=False)
+
+    def get_player_runs(
+        self, name: str, realm: int
+    ) -> List[Tuple[str, int, int, int, int]]:
+        """Returns m+ runs for player.
+
+        Parameters
+        ----------
+        name : str
+            player character name
+        realm : int
+            blizzard id of the player realm
+
+        Returns
+        -------
+        runs : list
+            list of runs including meta information and roster
+        """
+        if not isinstance(realm, int):
+            raise TypeError("Realm id needs to be an integer. You provided: %s" % realm)
+        query = """
+            SELECT run.id, roster.name, roster.realm, roster.spec, run.dungeon,
+                run.level, run.istimed, run.period, period.affixes, run_rank.rank_
+            FROM
+                (select run_id from roster where name="{name}" and realm={realm}) AS run_ids
+            LEFT JOIN roster ON run_ids.run_id = roster.run_id
+            LEFT JOIN run_rank ON run_rank.run_id=run_ids.run_id
+            LEFT JOIN run ON run.id = run_ids.run_id
+            LEFT JOIN period ON period.id=run.period
+            WHERE period.region = 1 AND run.period BETWEEN 780 AND 1000;
+        """.format(
+            name=name, realm=realm
+        )
+        data = self.send_query_to_mdb(query, isfetch=True)
+        return data
