@@ -115,6 +115,9 @@ def export_mdb_summary() -> None:
     runs_per_period = mdb.get_activity_data()
     push_activity_data_to_sqlite(runs_per_period)
 
+    # update rankings
+    mdb.update_ranks_table(period_start=780, period_end=1000, min_level=10)
+
 
 def update_export_summary() -> None:
     """First updates, then exports MDB summary tables as sqlite file."""
