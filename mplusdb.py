@@ -11,6 +11,15 @@ class MplusDatabase(object):
 
     __utility_tables = ["realm", "region", "dungeon", "spec", "period"]
     __table_fields = {  # these are used to formulate batch inserts queries
+        "realm": [
+            "cluster_id",
+            "realm_id",
+            "name",
+            "name_slug",
+            "region",
+            "locale",
+            "timezone",
+        ],
         "period": [
             "region",
             "id",
