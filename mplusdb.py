@@ -96,7 +96,7 @@ class MplusDatabase(object):
         conn = mysql.connector.connect(**self.credentials)
         return conn
 
-    def insert(self, table, data):
+    def insert(self, table: str, data: list) -> None:
         """Batch-inserts list of rows into database.
 
         Warning: make sure row fields align with fields in the table.
