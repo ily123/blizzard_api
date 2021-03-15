@@ -264,7 +264,7 @@ class Caller:
 
     def get_connected_realms(self, region: str) -> List[dict]:
         """Gets full info for all of region's shards."""
-        cluster_ids = self.get_connected_realm_ids(region="us")
+        cluster_ids = self.get_connected_realm_ids(region=region)
         realms = []
         for cluster_id in cluster_ids:
             realms_in_cluster = self.get_connected_realm(
