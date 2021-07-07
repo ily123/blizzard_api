@@ -8,6 +8,8 @@ Example usage:
 """
 import sqlite3
 import time
+import datetime
+
 from typing import List, Optional, Tuple
 
 import pandas as pd
@@ -106,9 +108,9 @@ def export_mdb_summary() -> None:
     push_weekly_top500_summary_to_sqlite(weekly_top500_summary)
 
     # This module needs to be refactored.
-    # For now, I hard code the period for SL season 1 (780,...)
+    # For now, I hard code the period for SL season 2 (810,...)
     # I don't know when the season ends, so period end is 10,000
-    comp_data = mdb.get_composition_data_COLLATE(period_start=780, period_end=10000)
+    comp_data = mdb.get_composition_data_COLLATE(period_start=810, period_end=10000)
     push_comp_data_to_sqlite(comp_data)
 
     # get activity data and push to SQLite
@@ -117,7 +119,7 @@ def export_mdb_summary() -> None:
 
     # update rankings
     # disable this for now, until I figure out the IOPS provision issue
-    #mdb.update_ranks_table(period_start=780, period_end=1000, min_level=10)
+    # mdb.update_ranks_table(period_start=780, period_end=1000, min_level=10)
 
 
 def update_export_summary() -> None:
@@ -126,10 +128,10 @@ def update_export_summary() -> None:
     print("Update/Export started.")
     print("Updating summary_spec and period_rank table....")
     update_mdb_summary()
-    print("...done")
+    print("...done in %d sec" % (time.time() - time_start))
     print("Collecting data and exporting to sqlite...")
     export_mdb_summary()
-    print("...done")
+    print("...done in %d" % (time.time() - time_start))
     print("Update/Export done in %d sec" % (time.time() - time_start))
 
 
@@ -260,4 +262,6 @@ def push_comp_data_to_sqlite(data: List[Tuple[str, int, float, float, int]]) -> 
 
 if __name__ == "__main__":
     get_data()
-    update_export_summary()
+    if datetime.datetime.now().hour % 6 == 0:
+        print("Updating tables.")
+        update_export_summary()
